@@ -294,4 +294,113 @@ function my_bible_settings_page_content() {
 }
 
 add_filter('widget_text', 'do_shortcode');
+
+// --- Dynamic Title and Meta Description ---
+
+// Helper function to check if the current page is a Bible page
+if (!function_exists('is_my_bible_page')) {
+    function is_my_bible_page() {
+        // Check for query vars 'book' and 'chapter'
+        if (get_query_var('book') && get_query_var('chapter')) {
+            return true;
+        }
+        // Check if the current page is the main Bible page (e.g., slug 'bible')
+        // You might need to adjust 'bible' if your page slug is different
+        if (is_page('bible')) { // Assuming 'bible' is the slug of your main Bible display page
+            return true;
+        }
+        return false;
+    }
+}
+
+// Function to dynamically generate title parts
+if (!function_exists('my_bible_dynamic_title_parts')) {
+    function my_bible_dynamic_title_parts($title_parts) {
+        if (!is_my_bible_page()) {
+            return $title_parts;
+        }
+
+        $book_slug = get_query_var('book');
+        $chapter_num = get_query_var('chapter');
+        $verse_num = get_query_var('verse');
+
+        if ($book_slug && $chapter_num) {
+            $book_name = my_bible_get_book_name_from_slug($book_slug);
+            if (!$book_name) {
+                // Fallback if book name not found (e.g., use slug or a default)
+                $book_name = ucwords(str_replace('-', ' ', sanitize_text_field($book_slug)));
+            }
+
+            $new_title = $book_name . ' ' . __('الأصحاح', 'my-bible-plugin') . ' ' . $chapter_num;
+
+            if ($verse_num) {
+                $new_title = $book_name . ' ' . $chapter_num . ':' . $verse_num;
+            }
+
+            $title_parts['title'] = $new_title;
+            // $title_parts['site'] is usually set by WordPress, we keep it.
+        }
+        // If only on the main 'bible' page without book/chapter, the default page title is fine.
+        return $title_parts;
+    }
+}
+add_filter('document_title_parts', 'my_bible_dynamic_title_parts', 15);
+
+// Function to dynamically generate meta description
+if (!function_exists('my_bible_dynamic_meta_description')) {
+    function my_bible_dynamic_meta_description() {
+        global $wpdb;
+
+        if (!is_my_bible_page()) {
+            return;
+        }
+
+        $book_slug = get_query_var('book');
+        $chapter_num = get_query_var('chapter');
+        $verse_num = get_query_var('verse');
+        $description = '';
+
+        if ($book_slug && $chapter_num) {
+            $book_name = my_bible_get_book_name_from_slug($book_slug);
+            if (!$book_name) {
+                $book_name = ucwords(str_replace('-', ' ', sanitize_text_field($book_slug)));
+            }
+
+            $table_name = $wpdb->prefix . 'bible_verses';
+
+            if ($verse_num) {
+                $verse_text = $wpdb->get_var($wpdb->prepare(
+                    "SELECT text FROM {$table_name} WHERE book = %s AND chapter = %d AND verse = %d",
+                    $book_name, // Assuming my_bible_get_book_name_from_slug returns the exact name in DB
+                    $chapter_num,
+                    $verse_num
+                ));
+                if ($verse_text) {
+                    $description = wp_strip_all_tags($verse_text) . ' (' . $book_name . ' ' . $chapter_num . ':' . $verse_num . '). ' . __('اقرأ الكتاب المقدس على', 'my-bible-plugin') . ' ' . get_bloginfo('name');
+                }
+            } else {
+                $first_verse_text = $wpdb->get_var($wpdb->prepare(
+                    "SELECT text FROM {$table_name} WHERE book = %s AND chapter = %d ORDER BY verse ASC LIMIT 1",
+                    $book_name,
+                    $chapter_num
+                ));
+                if ($first_verse_text) {
+                    $snippet = mb_substr(wp_strip_all_tags($first_verse_text), 0, 100, 'UTF-8');
+                    $description = __('اقرأ', 'my-bible-plugin') . ' ' . $book_name . ' ' . __('الأصحاح', 'my-bible-plugin') . ' ' . $chapter_num . '. ' . $snippet . '... ' . __('الكتاب المقدس على', 'my-bible-plugin') . ' ' . get_bloginfo('name');
+                } else {
+                    $description = __('تصفح واقرأ', 'my-bible-plugin') . ' ' . $book_name . ' ' . __('الأصحاح', 'my-bible-plugin') . ' ' . $chapter_num . ' ' . __('من الكتاب المقدس. مقدم من', 'my-bible-plugin') . ' ' . get_bloginfo('name');
+                }
+            }
+        } elseif (is_page('bible')) { // Main bible page, no specific book/chapter
+             $description = __('تصفح وقراءة الكتاب المقدس كاملاً. ابحث عن الأسفار، الأصحاحات، والآيات بسهولة. مقدم من', 'my-bible-plugin') . ' ' . get_bloginfo('name');
+        }
+
+
+        if (!empty($description)) {
+            echo '<meta name="description" content="' . esc_attr($description) . '" />' . "\n";
+        }
+    }
+}
+add_action('wp_head', 'my_bible_dynamic_meta_description', 5);
+
 ?>

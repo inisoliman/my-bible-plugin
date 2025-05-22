@@ -40,7 +40,15 @@ function my_bible_display_content_shortcode($atts) {
         return '<p>' . esc_html__('خطأ: لم يتم العثور على أي أسفار في قاعدة البيانات.', 'my-bible-plugin') . '</p>';
     }
 
-    $output = '<div id="bible-container" class="bible-content-area">';
+    // Book Schema Wrapper part 1: Modify the main container
+    // Condition to check if book and chapter are selected and verses will be displayed
+    if (!empty($selected_book_name_for_db) && $selected_chapter_number > 0 && $wpdb->get_var($wpdb->prepare("SELECT COUNT(1) FROM $table_name WHERE book = %s AND chapter = %d", $selected_book_name_for_db, $selected_chapter_number)) > 0) {
+        $output = '<div id="bible-container" class="bible-content-area" itemscope itemtype="http://schema.org/Book">';
+        $output .= '<meta itemprop="name" content="' . esc_attr($selected_book_name_for_db) . '" />';
+        $output .= '<meta itemprop="url" content="' . esc_url(home_url('/bible/' . my_bible_create_book_slug($selected_book_name_for_db) . '/')) . '" />';
+    } else {
+        $output = '<div id="bible-container" class="bible-content-area">';
+    }
     $output .= '<div class="bible-selection-controls">';
     $output .= '<select id="bible-book-select" name="selected_book" class="bible-select">';
     $output .= '<option value="">' . esc_html__('اختر السفر', 'my-bible-plugin') . '</option>';
