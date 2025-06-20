@@ -126,7 +126,6 @@ function my_bible_enqueue_scripts() {
                 'hide_tashkeel_label' => __('إلغاء التشكيل', 'my-bible-plugin'),
                 'dark_mode_toggle_label_light' => __('الوضع النهاري', 'my-bible-plugin'),
                 'dark_mode_toggle_label_dark' => __('الوضع الليلي', 'my-bible-plugin'),
-                // New strings for chapter meanings modal
                 'chapter_meanings_title' => __('معاني كلمات الأصحاح', 'my-bible-plugin'),
                 'no_dictionary_terms_in_chapter' => __('لا توجد كلمات من القاموس في هذا الأصحاح.', 'my-bible-plugin'),
                 'no_chapter_content' => __('لم يتم العثور على محتوى الأصحاح.', 'my-bible-plugin'),
@@ -154,7 +153,7 @@ function my_bible_create_dictionary_table_and_import_data() {
     // SQL schema for the dictionary table
     $sql = "CREATE TABLE $table_name (
         id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-        dictionary_key VARCHAR(255) NOT NULL,
+        dictionary_key VARCHAR(191) NOT NULL,
         book_name VARCHAR(255) NOT NULL,
         chapter INT NOT NULL,
         verse INT NOT NULL,
@@ -171,52 +170,128 @@ function my_bible_create_dictionary_table_and_import_data() {
     // Helper function to parse VerseID
     if (!function_exists('_my_bible_parse_verse_id')) {
         function _my_bible_parse_verse_id($verse_id_str) {
-            // Normalize common Arabic characters for broader matching
-            $verse_id_str = str_replace(['أ', 'إ', 'آ'], 'ا', $verse_id_str);
-            $verse_id_str = str_replace('ى', 'ي', $verse_id_str);
+            // Original normalization attempts
+            $original_verse_id_str = $verse_id_str; // Keep original for logging on failure
             $verse_id_str = trim($verse_id_str);
 
             // Define book name map (abbreviation -> full name)
+            // Keys should be the most common raw abbreviations found in data
             $book_map = array(
-                'تك' => 'سفر التكوين', 'خر' => 'سفر الخروج', 'لاو' => 'سفر اللاويين', 'عد' => 'سفر العدد', 'تث' => 'سفر التثنية',
-                'يش' => 'سفر يشوع', 'قض' => 'سفر القضاة', 'را' => 'سفر راعوث', '1صم' => 'سفر صموئيل الأول', '2صم' => 'سفر صموئيل الثاني',
-                '1مل' => 'سفر الملوك الأول', '2مل' => 'سفر الملوك الثاني', '1اخ' => 'سفر أخبار الأيام الأول', '2اخ' => 'سفر أخبار الأيام الثاني',
-                'عز' => 'سفر عزرا', 'نح' => 'سفر نحميا', 'اس' => 'سفر أستير', 'اي' => 'سفر أيوب', 'مز' => 'سفر المزامير',
-                'ام' => 'سفر الأمثال', 'جا' => 'سفر الجامعة', 'نش' => 'سفر نشيد الأنشاد', 'اش' => 'سفر إشعياء', 'ار' => 'سفر إرميا',
-                'مرا' => 'سفر مراثي إرميا', 'حز' => 'سفر حزقيال', 'دا' => 'سفر دانيال', 'هو' => 'سفر هوشع', 'يؤ' => 'سفر يوئيل',
-                'عا' => 'سفر عاموس', 'عو' => 'سفر عوبديا', 'يون' => 'سفر يونان', 'مي' => 'سفر ميخا', 'نا' => 'سفر ناحوم',
-                'حب' => 'سفر حبقوق', 'صف' => 'سفر صفنيا', 'حج' => 'سفر حجي', 'زك' => 'سفر زكريا', 'ملا' => 'سفر ملاخي',
-                'مت' => 'إنجيل متى', 'مر' => 'إنجيل مرقس', 'لو' => 'إنجيل لوقا', 'يو' => 'إنجيل يوحنا', 'اع' => 'سفر أعمال الرسل',
-                'رو' => 'الرسالة إلى أهل رومية', '1كو' => 'الرسالة الأولى إلى أهل كورنثوس', '2كو' => 'الرسالة الثانية إلى أهل كورنثوس',
-                'غل' => 'الرسالة إلى أهل غلاطية', 'اف' => 'الرسالة إلى أهل أفسس', 'في' => 'الرسالة إلى أهل فيلبي', 'كو' => 'الرسالة إلى أهل كولوسي',
-                '1تس' => 'الرسالة الأولى إلى أهل تسالونيكي', '2تس' => 'الرسالة الثانية إلى أهل تسالونيكي', '1تي' => 'الرسالة الأولى إلى تيموثاوس',
-                '2تي' => 'الرسالة الثانية إلى تيموثاوس', 'تي' => 'الرسالة إلى تيطس', 'فل' => 'الرسالة إلى فليمون', 'عب' => 'الرسالة إلى العبرانيين',
-                'يع' => 'رسالة يعقوب', '1بط' => 'رسالة بطرس الأولى', '2بط' => 'رسالة بطرس الثانية', '1يو' => 'رسالة يوحنا الأولى',
-                '2يو' => 'رسالة يوحنا الثانية', '3يو' => 'رسالة يوحنا الثالثة', 'يه' => 'رسالة يهوذا', 'رؤ' => 'سفر رؤيا يوحنا اللاهوتي'
+                'تك' => 'سفر التكوين',
+                'خر' => 'سفر الخروج',
+                'لا' => 'سفر اللاويين', // Added
+                'لاو' => 'سفر اللاويين',
+                'عد' => 'سفر العدد',
+                'تث' => 'سفر التثنية',
+                'يش' => 'سفر يشوع',
+                'قض' => 'سفر القضاة',
+                'را' => 'سفر راعوث',
+                '1صم' => 'سفر صموئيل الأول',
+                '2صم' => 'سفر صموئيل الثاني',
+                '1مل' => 'سفر الملوك الأول',
+                '2مل' => 'سفر الملوك الثاني',
+                '1اخ' => 'سفر أخبار الأيام الأول',
+                '2اخ' => 'سفر أخبار الأيام الثاني',
+                'عز' => 'سفر عزرا',
+                'نح' => 'سفر نحميا',
+                'اس' => 'سفر أستير',
+                'أس' => 'سفر أستير', // Added
+                'اي' => 'سفر أيوب',
+                'أي' => 'سفر أيوب', // Added
+                'مز' => 'سفر المزامير',
+                'ام' => 'سفر الأمثال',
+                'أم' => 'سفر الأمثال', // Added
+                'جا' => 'سفر الجامعة',
+                'نش' => 'سفر نشيد الأنشاد',
+                'اش' => 'سفر إشعياء',
+                'إش' => 'سفر إشعياء', // Added
+                'ار' => 'سفر إرميا',
+                'إر' => 'سفر إرميا', // Added
+                'مرا' => 'سفر مراثي إرميا',
+                'حز' => 'سفر حزقيال',
+                'دا' => 'سفر دانيال',
+                'هو' => 'سفر هوشع',
+                'يؤ' => 'سفر يوئيل',
+                'عا' => 'سفر عاموس',
+                'عو' => 'سفر عوبديا',
+                'يو' => 'سفر يونان', // Changed from 'يون' as per new map
+                'يون' => 'سفر يونان', // Keep both if both appear
+                'مي' => 'سفر ميخا',
+                'نا' => 'سفر ناحوم',
+                'حب' => 'سفر حبقوق',
+                'صف' => 'سفر صفنيا',
+                'حج' => 'سفر حجي',
+                'زك' => 'سفر زكريا',
+                'ملا' => 'سفر ملاخي',
+                'مت' => 'إنجيل متى',
+                'مر' => 'إنجيل مرقس',
+                'لو' => 'إنجيل لوقا',
+                'يوح' => 'إنجيل يوحنا', // Added
+                // 'يو' => 'إنجيل يوحنا', // This was in old map, 'يوح' is more specific for John gospel, 'يو' was for Jonah.
+                'اع' => 'سفر أعمال الرسل',
+                'أع' => 'سفر أعمال الرسل', // Added
+                'رو' => 'رسالة بولس الرسول إلى أهل رومية',
+                '1كو' => 'رسالة بولس الرسول الأولى إلى أهل كورنثوس',
+                '2كو' => 'رسالة بولس الرسول الثانية إلى أهل كورنثوس',
+                'غلا' => 'رسالة بولس الرسول إلى أهل غلاطية', // Added
+                'اف' => 'رسالة بولس الرسول إلى أهل أفسس',
+                'أف' => 'رسالة بولس الرسول إلى أهل أفسس', // Added
+                'في' => 'رسالة بولس الرسول إلى أهل فيلبي',
+                'كو' => 'رسالة بولس الرسول إلى أهل كولوسي',
+                '1تس' => 'رسالة بولس الرسول الأولى إلى أهل تسالونيكي',
+                '2تس' => 'رسالة بولس الرسول الثانية إلى أهل تسالونيكي',
+                '1تي' => 'رسالة بولس الرسول الأولى إلى تيموثاوس',
+                '2تي' => 'رسالة بولس الرسول الثانية إلى تيموثاوس',
+                'تي' => 'رسالة بولس الرسول إلى تيطس',
+                'فل' => 'رسالة بولس الرسول إلى فليمون',
+                'فيل' => 'رسالة بولس الرسول إلى فليمون', // Added
+                'عب' => 'الرسالة إلى العبرانيين',
+                'يع' => 'رسالة يعقوب',
+                '1بط' => 'رسالة بطرس الأولى',
+                '2بط' => 'رسالة بطرس الثانية',
+                '1يو' => 'رسالة يوحنا الأولى',
+                '2يو' => 'رسالة يوحنا الثانية',
+                '3يو' => 'رسالة يوحنا الثالثة',
+                'يه' => 'رسالة يهوذا',
+                'رؤ' => 'سفر رؤيا يوحنا اللاهوتي'
             );
 
-            // Regex to extract book abbreviation/name, chapter, and verse
-            if (preg_match('/^([^\d\s]+(?:\d[^\s\d]*)?)\s*(\d+)\s*:\s*(\d+)$/u', $verse_id_str, $matches)) {
-                $book_abbr = trim($matches[1]);
+            // New Regex: Handles optional leading digit, multi-word book names, and specific Arabic characters like tatweel.
+            // Allows for colon or period as chapter/verse separator.
+            $pattern = '/^(\d?[^\d\s]+(?:[\s\x{0640}-\x{064F}\x{0650}-\x{065F}]*[^\d\s]+)*)\s*(\d+)\s*[:\.]\s*(\d+)$/u';
+
+            if (preg_match($pattern, $verse_id_str, $matches)) {
+                $book_abbr_raw = trim($matches[1]); // Raw abbreviation from regex
                 $chapter = (int)$matches[2];
                 $verse = (int)$matches[3];
 
-                // Normalize abbreviation before map lookup (standardize characters, then tolower)
-                $normalized_book_abbr = str_replace(['أ', 'إ', 'آ'], 'ا', $book_abbr);
-                $normalized_book_abbr = str_replace('ى', 'ي', $normalized_book_abbr);
-                $normalized_book_abbr = strtolower($normalized_book_abbr);
+                // Normalize the raw abbreviation for map lookup
+                // 1. Remove Tatweel (U+0640) and Arabic diacritics (U+064B to U+065F)
+                $normalized_abbr_for_lookup = preg_replace('/[\x{0640}\x{064B}-\x{065F}]/u', '', $book_abbr_raw);
+                // 2. Standardize Alef forms to simple Alef, Yaa to simple Yaa
+                $normalized_abbr_for_lookup = str_replace(['أ', 'إ', 'آ', 'ٱ'], 'ا', $normalized_abbr_for_lookup);
+                $normalized_abbr_for_lookup = str_replace('ى', 'ي', $normalized_abbr_for_lookup);
+                // 3. Remove any remaining spaces within the abbreviation string (e.g. "1 صم" -> "1صم")
+                $normalized_abbr_for_lookup = preg_replace('/\s+/', '', $normalized_abbr_for_lookup);
+                // 4. Convert to lowercase (though Arabic script doesn't have case, this is good practice if map keys are all lowercase)
+                // However, map keys provided are in Arabic script, so direct match after normalization is better.
+                // $normalized_abbr_for_lookup = strtolower($normalized_abbr_for_lookup); // Not strictly needed if keys are Arabic
 
-                $book_name = isset($book_map[$normalized_book_abbr]) ? $book_map[$normalized_book_abbr] : $book_abbr; // Fallback to abbr
+                // Attempt to map abbreviation to full name
+                $book_name = isset($book_map[$normalized_abbr_for_lookup]) ? $book_map[$normalized_abbr_for_lookup] : $book_abbr_raw; // Fallback to raw abbr if not in map
 
-                // Normalize the full book name for storage (remove all spaces, specific chars already handled)
+                // Final normalization for storage (consistent with how it might be stored in bible_verses or queried)
+                // 1. Remove all spaces from the full book name
                 $final_book_name = str_replace(' ', '', $book_name);
-                $final_book_name = str_replace(['أ', 'إ', 'آ'], 'ا', $final_book_name);
+                // 2. Standardize Alef forms and Yaa (already done for abbreviation, do it for full name if it came from fallback)
+                $final_book_name = str_replace(['أ', 'إ', 'آ', 'ٱ'], 'ا', $final_book_name);
                 $final_book_name = str_replace('ى', 'ي', $final_book_name);
-
+                // 3. Remove Tashkeel (diacritics) and Tatweel from the final book name
+                $final_book_name = preg_replace('/[\x{0640}\x{064B}-\x{065F}]/u', '', $final_book_name);
 
                 return ['book' => $final_book_name, 'chapter' => $chapter, 'verse' => $verse];
             } else {
-                my_bible_log_error("Failed to parse VerseID: " . $verse_id_str, 'dictionary_import');
+                my_bible_log_error("Failed to parse VerseID (new regex): " . $original_verse_id_str, 'dictionary_import_parsing');
                 return false;
             }
         }
@@ -229,15 +304,14 @@ function my_bible_create_dictionary_table_and_import_data() {
             fgetcsv($handle); // Skip header
 
             while (($row = fgetcsv($handle)) !== FALSE) {
-                if (count($row) < 4) { // Expect at least ID, VerseID, Word, Meaning
+                if (count($row) < 4) {
                     my_bible_log_error("Skipping row due to insufficient columns: " . implode(',', $row), 'dictionary_import');
                     continue;
                 }
 
-                // $csv_id = trim($row[0]); // Column 0 is ID
-                $verse_id_str = trim($row[1]); // Column 1 is VerseID
-                $word = trim(stripslashes($row[2])); // Column 2 is Word
-                $meaning = trim(stripslashes($row[3])); // Column 3 is Meaning
+                $verse_id_str = trim($row[1]);
+                $word = trim(stripslashes($row[2]));
+                $meaning = trim(stripslashes($row[3]));
 
                 if (empty($verse_id_str) || empty($word) || empty($meaning)) {
                     my_bible_log_error("Skipping row due to empty essential data. VerseID: '{$verse_id_str}', Word: '{$word}'", 'dictionary_import');
@@ -247,11 +321,10 @@ function my_bible_create_dictionary_table_and_import_data() {
                 $parsed_verse_id = _my_bible_parse_verse_id($verse_id_str);
 
                 if ($parsed_verse_id) {
-                    // Book name from parser is already normalized (no spaces, standard chars)
                     $normalized_key_book_name = strtolower($parsed_verse_id['book']);
-                    $normalized_key_word = strtolower($word);
+                    $normalized_key_word = strtolower(preg_replace('/[\x{0640}\x{064B}-\x{065F}]/u', '', str_replace(['أ', 'إ', 'آ', 'ٱ'], 'ا', str_replace('ى', 'ي', $word))));
 
-                    // Construct the string for MD5 hash to ensure consistency
+
                     $dictionary_key_string = $normalized_key_book_name . '-' . $parsed_verse_id['chapter'] . '-' . $parsed_verse_id['verse'] . '-' . $normalized_key_word;
                     $dictionary_key = md5($dictionary_key_string);
 
@@ -262,10 +335,10 @@ function my_bible_create_dictionary_table_and_import_data() {
                             $table_name,
                             array(
                                 'dictionary_key' => $dictionary_key,
-                                'book_name' => $parsed_verse_id['book'], // Use the full, normalized book name from parser
+                                'book_name' => $parsed_verse_id['book'],
                                 'chapter' => $parsed_verse_id['chapter'],
                                 'verse' => $parsed_verse_id['verse'],
-                                'word' => $word,
+                                'word' => $word, // Store original word
                                 'meaning' => $meaning
                             ),
                             array('%s', '%s', '%d', '%d', '%s', '%s')
@@ -322,5 +395,3 @@ function my_bible_options_sanitize($input) { /* ... كما كان ... */ return 
 function my_bible_settings_page_content() { /* ... كما كان ... */ }
 add_filter('widget_text', 'do_shortcode');
 ?>
-
-[end of my-bible-plugin.php]
