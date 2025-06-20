@@ -10,7 +10,7 @@ jQuery(document).ready(function($) {
     const DEFAULT_DARK_MODE = (typeof bibleFrontend !== 'undefined' && bibleFrontend.default_dark_mode) ? bibleFrontend.default_dark_mode : false;
     const DEFAULT_TESTAMENT_VIEW = (typeof bibleFrontend !== 'undefined' && bibleFrontend.default_testament_view) ? bibleFrontend.default_testament_view : 'all';
     const TESTAMENTS_LABELS_FROM_PHP = (typeof bibleFrontend !== 'undefined' && bibleFrontend.testaments) ? bibleFrontend.testaments : {all: BIBLE_STRINGS.all || 'الكل'};
-    
+
     const IMAGE_FONTS_DATA = (typeof bibleFrontend !== 'undefined' && bibleFrontend.image_fonts_data) ? bibleFrontend.image_fonts_data : {
         'noto_naskh_arabic': { label: BIBLE_STRINGS.font_noto_naskh || 'خط نسخ (افتراضي)', family: '"Noto Naskh Arabic", Arial, Tahoma, sans-serif' },
         'amiri': { label: BIBLE_STRINGS.font_amiri || 'خط أميري', family: 'Amiri, Georgia, serif' },
@@ -28,6 +28,51 @@ jQuery(document).ready(function($) {
     const $bibleContentContainer = $('#bible-container');
     let $testamentSelect, $bookSelect, $chapterSelect, $versesDisplay, $mainPageTitleElement;
 
+    // --- Dictionary Tooltip Element ---
+    let bibleDictTooltip = document.getElementById('bible-dictionary-tooltip');
+    if (!bibleDictTooltip) {
+        bibleDictTooltip = document.createElement('div');
+        bibleDictTooltip.id = 'bible-dictionary-tooltip';
+        bibleDictTooltip.style.position = 'absolute';
+        bibleDictTooltip.style.display = 'none';
+        bibleDictTooltip.style.zIndex = '1000';
+        document.body.appendChild(bibleDictTooltip);
+    }
+    // --- End Dictionary Tooltip Element ---
+
+    // --- Chapter Meanings Modal Function ---
+    function createChapterMeaningsModal() {
+        let modal = document.getElementById('bible-chapter-meanings-modal');
+        if (modal) return modal; // Already exists
+
+        modal = document.createElement('div');
+        modal.id = 'bible-chapter-meanings-modal';
+        // Styles are primarily handled by CSS, but ensure it's hidden by default.
+        // display: flex is used in CSS for centering, ensure it's initially none.
+        modal.style.display = 'none';
+
+        modal.innerHTML = `
+            <div class="modal-content">
+                <span class="close-button">&times;</span>
+                <h2>${(typeof bibleFrontend !== 'undefined' && bibleFrontend.localized_strings && bibleFrontend.localized_strings.chapter_meanings_title) ? bibleFrontend.localized_strings.chapter_meanings_title : 'Dictionary Meanings for Chapter'}</h2>
+                <div class="meanings-list"></div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        modal.querySelector('.close-button').addEventListener('click', function() {
+            modal.style.display = 'none';
+        });
+        modal.addEventListener('click', function(event) {
+            if (event.target === modal) { // Clicked on the modal backdrop
+                modal.style.display = 'none';
+            }
+        });
+        return modal;
+    }
+    // --- End Chapter Meanings Modal Function ---
+
+
     function initializeSelectors() {
         if ($bibleContentContainer.length) {
             $testamentSelect = $bibleContentContainer.find('#bible-testament-select');
@@ -41,7 +86,7 @@ jQuery(document).ready(function($) {
         }
         populateImageOptionSelects();
     }
-    
+
     function populateImageOptionSelects() {
         $('select[id^="bible-image-font-select"]').each(function() {
             const $select = $(this);
@@ -97,7 +142,7 @@ jQuery(document).ready(function($) {
     }
 
     function toggleDarkMode() {
-        if ($('body').hasClass('dark-mode')) { localStorage.setItem('darkMode', 'disabled'); } 
+        if ($('body').hasClass('dark-mode')) { localStorage.setItem('darkMode', 'disabled'); }
         else { localStorage.setItem('darkMode', 'enabled'); }
         applyDarkModePreference();
     }
@@ -136,7 +181,7 @@ jQuery(document).ready(function($) {
         if (textToRead.trim() === '') { alert(BIBLE_STRINGS.no_text_to_read || 'لا يوجد نص للقراءة.'); return; }
         currentUtterance = new SpeechSynthesisUtterance(textToRead.trim());
         const arabicVoice = getArabicVoice();
-        if (arabicVoice) { currentUtterance.voice = arabicVoice; } 
+        if (arabicVoice) { currentUtterance.voice = arabicVoice; }
         else { console.warn("لم يتم العثور على صوت عربي."); currentUtterance.lang = 'ar-SA'; }
         currentUtterance.pitch = 1; currentUtterance.rate = 0.9;
         currentUtterance.onstart = () => {
@@ -184,9 +229,9 @@ jQuery(document).ready(function($) {
             ctx.fillStyle = backgroundOption.color;
         }
         ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-        
+
         const fontChoice = IMAGE_FONTS_DATA[selectedFontKey] || IMAGE_FONTS_DATA['noto_naskh_arabic'];
-        
+
         const verseFontFamily = fontChoice.family;
         const verseFontSize = '32px';
         const referenceFontFamily = fontChoice.family;
@@ -196,9 +241,9 @@ jQuery(document).ready(function($) {
         const siteLinkFontFamily = 'Arial, sans-serif';
         const siteLinkFontSize = '16px';
 
-        ctx.fillStyle = textColor; 
+        ctx.fillStyle = textColor;
         ctx.direction = 'rtl';
-        const padding = 40; 
+        const padding = 40;
         const maxWidth = canvasWidth - (padding * 2);
         let yPosition = padding + 50;
 
@@ -232,7 +277,7 @@ jQuery(document).ready(function($) {
 
         ctx.font = "italic " + referenceFontSize + " " + referenceFontFamily;
         ctx.textAlign = 'left';
-        const referenceTextHeight = parseFloat(referenceFontSize); 
+        const referenceTextHeight = parseFloat(referenceFontSize);
         if (yPosition + referenceTextHeight > canvasHeight - padding - 60) {
              yPosition = canvasHeight - padding - 60 - referenceTextHeight;
         }
@@ -329,7 +374,7 @@ jQuery(document).ready(function($) {
         let relativePath = "";
         try {
             const baseUrlObject = new URL(BASE_URL);
-            relativePath = baseUrlObject.pathname; 
+            relativePath = baseUrlObject.pathname;
         } catch (e) {
             console.error("Error parsing BASE_URL in updatePageDetails. BASE_URL:", BASE_URL, e);
             relativePath = BASE_URL.startsWith('/') ? BASE_URL : '/' + BASE_URL;
@@ -350,7 +395,7 @@ jQuery(document).ready(function($) {
                 relativePath += String(chapterNumForUrl) + '/';
             }
         }
-        
+
         let finalPushUrl;
         try {
             const tempUrl = new URL(relativePath, window.location.origin);
@@ -360,21 +405,21 @@ jQuery(document).ready(function($) {
              finalPushUrl = BASE_URL + (bookNameForUrl ? createSlug(bookNameForUrl) + '/' + (chapterNumForUrl ? chapterNumForUrl + '/' : '') : '');
              finalPushUrl = finalPushUrl.replace(/([^:])\/\//g, '$1/');
         }
-        
+
         try {
             const currentNormalized = (window.location.origin + window.location.pathname + window.location.search).replace(/\/?(\?.*)?$/, '');
             const finalNormalized = finalPushUrl.replace(/\/?(\?.*)?$/, '');
 
             if (currentNormalized !== finalNormalized) {
-                 history.pushState({ 
-                     book: bookNameForUrl, 
-                     chapter: chapterNumForUrl, 
+                 history.pushState({
+                     book: bookNameForUrl,
+                     chapter: chapterNumForUrl,
                      testament: testamentValForState,
-                     path: finalPushUrl 
+                     path: finalPushUrl
                     }, browserFullTitle, finalPushUrl);
             }
-        } catch (e) { 
-            console.error("Error in history.pushState: ", e, "Attempted URL:", finalPushUrl, "Current Location:", window.location.href); 
+        } catch (e) {
+            console.error("Error in history.pushState: ", e, "Attempted URL:", finalPushUrl, "Current Location:", window.location.href);
         }
     }
 
@@ -411,7 +456,7 @@ jQuery(document).ready(function($) {
                     }
                 }
             },
-            error: function(jqXHR) { 
+            error: function(jqXHR) {
                 console.error("AJAX Error (get_books_by_testament):", jqXHR.status, jqXHR.responseText);
                 $bookSelect.empty().append(`<option value="" disabled>${BIBLE_STRINGS.error_loading_books || 'خطأ في تحميل الأسفار'}</option>`);
                 if ($versesDisplay && $versesDisplay.length && (!isInitialLoad || $versesDisplay.find('.verse-text').length === 0)) {
@@ -424,10 +469,8 @@ jQuery(document).ready(function($) {
     function loadChaptersForBook(selectedBook, preselectedChapter = null, isInitialLoad = false) {
         if (!$chapterSelect || !$chapterSelect.length) return;
         $chapterSelect.empty().prop('disabled', true).append(`<option value="">${BIBLE_STRINGS.loading || 'جارٍ التحميل...'}</option>`);
-        
+
         if (!isInitialLoad && $versesDisplay && $versesDisplay.length) {
-            // لا تقم بمسح الآيات هنا إذا كان preselectedChapter هو "1" (يعني أننا نريد تحميل الأصحاح الأول)
-            // إلا إذا كان preselectedChapter فارغًا تمامًا
             if (preselectedChapter !== "1" || !preselectedChapter) {
                  resetVersesDisplay(BIBLE_STRINGS.please_select_chapter || 'يرجى اختيار الأصحاح.');
             }
@@ -451,14 +494,14 @@ jQuery(document).ready(function($) {
                         $chapterSelect.append($('<option>', { value: chapter, text: chapter }));
                     });
                     $chapterSelect.prop('disabled', false);
-                    
+
                     let chapterToActuallySelect = null;
                     if (!isInitialLoad && preselectedChapter === "1" && $chapterSelect.find('option[value="1"]').length > 0) {
                         chapterToActuallySelect = "1";
-                    } 
+                    }
                     else if (isInitialLoad && preselectedChapter && $chapterSelect.find('option[value="' + preselectedChapter + '"]').length > 0) {
                         chapterToActuallySelect = preselectedChapter;
-                    } 
+                    }
                     else if (isInitialLoad && $chapterSelect.data('initial-chapter') && $chapterSelect.find('option[value="' + $chapterSelect.data('initial-chapter') + '"]').length > 0) {
                         chapterToActuallySelect = $chapterSelect.data('initial-chapter');
                     }
@@ -467,11 +510,11 @@ jQuery(document).ready(function($) {
                         $chapterSelect.val(chapterToActuallySelect);
                         loadVersesForChapter(selectedBook, chapterToActuallySelect);
                     } else if ($versesDisplay && $versesDisplay.length && $versesDisplay.find('.verse-text').length === 0 && $versesDisplay.find('.bible-loading-message').length === 0) {
-                         if (!isInitialLoad) { // فقط إذا لم يكن تحميلًا أوليًا، اطلب اختيار الأصحاح
+                         if (!isInitialLoad) {
                             resetVersesDisplay(BIBLE_STRINGS.please_select_chapter || 'يرجى اختيار الأصحاح.');
                          }
                     }
-                } else { 
+                } else {
                     const errorMsg = (response.data && Array.isArray(response.data) && response.data.length === 0) ? (BIBLE_STRINGS.no_chapters_found || 'لم يتم العثور على أصحاحات لهذا السفر.') : (BIBLE_STRINGS.error_loading_chapters || 'حدث خطأ أثناء تحميل الأصحاحات.');
                     $chapterSelect.append(`<option value="" disabled>${errorMsg}</option>`);
                     if ($versesDisplay && $versesDisplay.length && (!isInitialLoad || $versesDisplay.find('.verse-text').length === 0)) {
@@ -479,7 +522,7 @@ jQuery(document).ready(function($) {
                     }
                  }
             },
-            error: function(jqXHR) { 
+            error: function(jqXHR) {
                 const errorMsg = BIBLE_STRINGS.error_loading_chapters_ajax || 'خطأ في الاتصال (أصحاحات). حاول مرة أخرى.';
                 $chapterSelect.empty().append(`<option value="" disabled>${errorMsg}</option>`);
                 if ($versesDisplay && $versesDisplay.length && (!isInitialLoad || $versesDisplay.find('.verse-text').length === 0)) {
@@ -503,15 +546,15 @@ jQuery(document).ready(function($) {
             success: function(response) {
                 if (response.success && response.data && response.data.html) {
                     $versesDisplay.html(response.data.html);
-                    initializeSelectors(); 
+                    initializeSelectors();
                     populateImageOptionSelects();
                     updatePageDetails( response.data.title, response.data.description, response.data.book, response.data.chapter, selectedTestament );
-                } else { 
+                } else {
                     const errorMsg = (response.data && response.data.message) ? response.data.message : (BIBLE_STRINGS.error_loading_verses || 'حدث خطأ أثناء تحميل الآيات.');
                     $versesDisplay.html(`<p class="bible-error-message">${errorMsg}</p>`);
                  }
             },
-            error: function(jqXHR) { 
+            error: function(jqXHR) {
                 $versesDisplay.html(`<p class="bible-error-message">${BIBLE_STRINGS.error_loading_verses_ajax || 'خطأ في الاتصال (آيات). حاول مرة أخرى.'}</p>`);
             }
         });
@@ -528,7 +571,7 @@ jQuery(document).ready(function($) {
         if ($bookSelect && $bookSelect.length) {
             $bookSelect.on('change', function() {
                 const selectedBook = $(this).val();
-                loadChaptersForBook(selectedBook, "1", false); 
+                loadChaptersForBook(selectedBook, "1", false);
             });
         }
         if ($chapterSelect && $chapterSelect.length) {
@@ -560,18 +603,21 @@ jQuery(document).ready(function($) {
     $(document.body).on('click', '.bible-control-button', function(event) {
         const $button = $(this);
         let $contentArea = $button.closest('.bible-content-area, .bible-search-results, .random-verse-widget, .daily-verse-widget, #bible-container, .bible-single-verse-container');
-        if (!$contentArea.length) $contentArea = $('body');
+        if (!$contentArea.length) $contentArea = $('body'); // Fallback to body
         const action = $button.data('action') || $button.attr('id');
 
         if (!$(this).hasClass('ajax-nav-link') && !$(this).hasClass('download-image-button') &&
             ['toggle-tashkeel', 'increase-font', 'decrease-font', 'dark-mode-toggle', 'read-aloud', 'generate-image'].includes(action)) {
-            event.preventDefault();
+             // For show-chapter-meanings, we don't preventDefault as it's handled by a document level listener
+            if (action !== 'show-chapter-meanings') {
+                 event.preventDefault();
+            }
         }
         let $textContainer = $contentArea.find('.verses-text-container, .verse-text-container').first();
-        if (!$textContainer.length && ($contentArea.is('.verse-text') || $contentArea.is('.random-verse') || $contentArea.is('.daily-verse'))) { 
-            $textContainer = $contentArea; 
-        } else if (!$textContainer.length) { 
-            $textContainer = $contentArea; 
+        if (!$textContainer.length && ($contentArea.is('.verse-text') || $contentArea.is('.random-verse') || $contentArea.is('.daily-verse'))) {
+            $textContainer = $contentArea;
+        } else if (!$textContainer.length) {
+            $textContainer = $contentArea;
         }
 
         switch (action) {
@@ -630,18 +676,125 @@ jQuery(document).ready(function($) {
                     }
                 }
                 break;
+            // Note: 'show-chapter-meanings' is handled by a separate document level listener below
         }
     });
 
+    // --- Dictionary Tooltip Event Listeners ---
+    document.addEventListener('mouseover', function(event) {
+        const target = event.target.closest('.dict-term');
+        if (target) {
+            const meaning = target.dataset.meaning;
+            if (meaning && bibleDictTooltip) {
+                bibleDictTooltip.innerHTML = meaning;
+                bibleDictTooltip.style.display = 'block';
+
+                let top = event.pageY + 15;
+                let left = event.pageX + 15;
+                const tooltipRect = bibleDictTooltip.getBoundingClientRect();
+
+                if (left + tooltipRect.width > window.innerWidth + window.scrollX) {
+                    left = window.innerWidth + window.scrollX - tooltipRect.width - 15;
+                }
+                if (left < window.scrollX) { left = window.scrollX + 5; }
+                if (top + tooltipRect.height > window.innerHeight + window.scrollY) {
+                    top = event.pageY - tooltipRect.height - 15;
+                }
+                if (top < window.scrollY) { top = window.scrollY + 5; }
+
+                bibleDictTooltip.style.top = top + 'px';
+                bibleDictTooltip.style.left = left + 'px';
+            }
+        }
+    });
+
+    document.addEventListener('mouseout', function(event) {
+        const target = event.target.closest('.dict-term');
+        if (target && bibleDictTooltip) {
+            bibleDictTooltip.style.display = 'none';
+        }
+    });
+
+    window.addEventListener('scroll', function() {
+        if (bibleDictTooltip && bibleDictTooltip.style.display === 'block') {
+            bibleDictTooltip.style.display = 'none';
+        }
+    }, true);
+    // --- End Dictionary Tooltip Event Listeners ---
+
+    // --- Chapter Meanings Modal Event Listener ---
+    document.addEventListener('click', function(event) {
+        const target = event.target.closest('button[data-action="show-chapter-meanings"]');
+        if (target) {
+            event.preventDefault(); // Prevent default button action if any
+            const modal = createChapterMeaningsModal();
+            const meaningsListDiv = modal.querySelector('.meanings-list');
+            meaningsListDiv.innerHTML = '<p><i class="fas fa-spinner fa-spin"></i> '+(BIBLE_STRINGS.loading || 'جارٍ التحميل...')+'</p>'; // Loading indicator
+
+            // Determine the correct verses container.
+            // Check if the button is inside a specific shortcode output like bible_content or search results.
+            let versesContainer;
+            const bibleContentArea = target.closest('.bible-content-area'); // Common parent for bible_content and search_results
+
+            if (bibleContentArea) {
+                versesContainer = bibleContentArea.querySelector('#verses-content') || bibleContentArea.querySelector('.verses-text-container');
+            } else {
+                // Fallback for structures where controls might be outside .bible-content-area but relate to a general page view
+                versesContainer = document.querySelector('#verses-content') || document.querySelector('.verses-text-container');
+            }
+
+            if (!versesContainer) {
+                meaningsListDiv.innerHTML = '<p>' + ((typeof bibleFrontend !== 'undefined' && bibleFrontend.localized_strings && bibleFrontend.localized_strings.no_chapter_content) ? bibleFrontend.localized_strings.no_chapter_content : 'Could not find chapter content.') + '</p>';
+                modal.style.display = 'flex'; // Use flex as per CSS for centering
+                return;
+            }
+
+            const chapterTerms = versesContainer.querySelectorAll('.dict-term');
+            const uniqueMeanings = new Map();
+
+            if (chapterTerms.length > 0) {
+                chapterTerms.forEach(termEl => {
+                    const word = termEl.innerText;
+                    const meaning = termEl.dataset.meaning;
+                    if (word && meaning && !uniqueMeanings.has(word + "||" + meaning)) { // Use a more robust key
+                        uniqueMeanings.set(word + "||" + meaning, { word: word, meaning: meaning });
+                    }
+                });
+
+                if (uniqueMeanings.size > 0) {
+                    meaningsListDiv.innerHTML = ''; // Clear loading/previous
+                    const ul = document.createElement('ul');
+                    uniqueMeanings.forEach(item => {
+                        const li = document.createElement('li');
+                        // Ensure item.word and item.meaning are treated as text, not HTML
+                        const strong = document.createElement('strong');
+                        strong.textContent = item.word + ': ';
+                        li.appendChild(strong);
+                        li.appendChild(document.createTextNode(item.meaning));
+                        ul.appendChild(li);
+                    });
+                    meaningsListDiv.appendChild(ul);
+                } else {
+                    meaningsListDiv.innerHTML = '<p>' + ((typeof bibleFrontend !== 'undefined' && bibleFrontend.localized_strings && bibleFrontend.localized_strings.no_dictionary_terms_in_chapter) ? bibleFrontend.localized_strings.no_dictionary_terms_in_chapter : 'No dictionary terms found in this chapter.') + '</p>';
+                }
+            } else {
+                meaningsListDiv.innerHTML = '<p>' + ((typeof bibleFrontend !== 'undefined' && bibleFrontend.localized_strings && bibleFrontend.localized_strings.no_dictionary_terms_in_chapter) ? bibleFrontend.localized_strings.no_dictionary_terms_in_chapter : 'No dictionary terms found in this chapter.') + '</p>';
+            }
+            modal.style.display = 'flex'; // Use flex as per CSS for centering
+        }
+    });
+    // --- End Chapter Meanings Modal Event Listener ---
+
+
     window.addEventListener('popstate', function(event) {
         if (!$bibleContentContainer.length && !$('.random-verse-widget').length && !$('.daily-verse-widget').length && !$('.bible-single-verse-container').length) return;
-        initializeSelectors(); 
+        initializeSelectors();
 
         const state = event.state;
         if (state && state.path) {
             const fullPathFromState = state.path;
             const urlObject = new URL(fullPathFromState);
-            const testamentFromState = state.testament || DEFAULT_TESTAMENT_VIEW; 
+            const testamentFromState = state.testament || DEFAULT_TESTAMENT_VIEW;
             const basePathForExtraction = new URL(BASE_URL).pathname;
             let relativePathForExtraction = urlObject.pathname;
             if (relativePathForExtraction.startsWith(basePathForExtraction)) {
@@ -663,20 +816,20 @@ jQuery(document).ready(function($) {
             if($testamentSelect && $testamentSelect.length) updateBookDropdown($testamentSelect.val(), null, null, false);
         }
     });
-    
+
     // --- التنفيذ عند تحميل الصفحة ---
     applyDarkModePreference();
     if ($bibleContentContainer.length || $('.random-verse-widget').length || $('.daily-verse-widget').length || $('.bible-single-verse-container').length) {
-        initializeSelectors(); 
+        initializeSelectors();
 
-        if ($bibleContentContainer.length) { 
+        if ($bibleContentContainer.length) {
             const urlParams = new URLSearchParams(window.location.search);
             const testamentFromUrl = urlParams.get('testament');
             const pathSegments = window.location.pathname.replace(/\/$/, "").split('/').filter(segment => segment.length > 0);
             const baseSegments = BASE_URL.replace(/\/$/, "").split('/').filter(segment => segment.length > 0);
             let isBiblePage = true;
             for(let i=0; i < baseSegments.length; i++){ if(pathSegments[i] !== baseSegments[i]){ isBiblePage = false; break; } }
-            
+
             let initialBookNameFromData = ($bookSelect && $bookSelect.length) ? $bookSelect.data('initial-book') : null;
             let initialChapterNumFromData = ($chapterSelect && $chapterSelect.length) ? $chapterSelect.data('initial-chapter') : null;
 
