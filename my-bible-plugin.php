@@ -2,325 +2,304 @@
 /*
 Plugin Name: My Bible Plugin
 Description: عرض الكتاب المقدس مع بحث متقدم، فلتر العهد، شواهد، تنقل محسن، دعم الوضع الليلي، قراءة صوتية، إنشاء صور، فهرس للأسفار، وخريطة موقع مخصصة.
-Version: 2.2.0
+Version: 2.0.0
 Author: اسمك (تم التحديث بواسطة Gemini)
 Text Domain: my-bible-plugin
 Domain Path: /languages
 */
 
+// منع الوصول المباشر للملف
 if (!defined('ABSPATH')) {
     exit;
 }
 
-define('MY_BIBLE_PLUGIN_VERSION', '2.2.0');
+define('MY_BIBLE_PLUGIN_VERSION', '2.0.0');
 define('MY_BIBLE_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('MY_BIBLE_PLUGIN_URL', plugin_dir_url(__FILE__));
 
-// --- تضمين ملف الدوال المساعدة أولاً ---
+// --- تضمين ملف الدوال المساعدة أولاً وقبل كل شيء ---
 if (file_exists(MY_BIBLE_PLUGIN_DIR . 'includes/helpers.php')) {
     require_once MY_BIBLE_PLUGIN_DIR . 'includes/helpers.php';
 } else {
-    // ... رسالة خطأ ...
+    if (defined('WP_DEBUG_LOG') && WP_DEBUG_LOG === true) {
+        error_log('[My Bible Plugin CRITICAL] helpers.php not found at ' . MY_BIBLE_PLUGIN_DIR . 'includes/helpers.php. Plugin will not function correctly.');
+    }
+    add_action('admin_notices', function() {
+        echo '<div class="notice notice-error"><p><strong>My Bible Plugin Error:</strong> Essential helper file not found. The plugin cannot function.</p></div>';
+    });
+    return; 
 }
 
+
+// تحميل ملفات الـ CSS والـ JS
+// Add after the helpers.php include
 if (!function_exists('my_bible_log_error')) {
     function my_bible_log_error($message, $context = '') {
         if (defined('WP_DEBUG_LOG') && WP_DEBUG_LOG) {
-            error_log('[My Bible Plugin] ' . ($context ? '[' . $context . '] ' : '') . $message);
+            error_log('[My Bible Plugin] ' . $context . ': ' . $message);
         }
     }
 }
 
+// Improve the enqueue function with error handling
 function my_bible_enqueue_scripts() {
     try {
         wp_enqueue_script('jquery');
         wp_enqueue_style('font-awesome', 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css', array(), '5.15.4');
         wp_enqueue_style('my-bible-styles', MY_BIBLE_PLUGIN_URL . 'assets/css/bible-styles.css', array(), MY_BIBLE_PLUGIN_VERSION);
         wp_enqueue_style('my-bible-dark-mode', MY_BIBLE_PLUGIN_URL . 'assets/css/dark-mode.css', array('my-bible-styles'), MY_BIBLE_PLUGIN_VERSION);
-        wp_enqueue_style('my-bible-dictionary-styles', MY_BIBLE_PLUGIN_URL . 'assets/css/dictionary-styles.css', array('my-bible-styles'), MY_BIBLE_PLUGIN_VERSION); // Dictionary styles
+
         wp_enqueue_script('my-bible-frontend', MY_BIBLE_PLUGIN_URL . 'assets/js/bible-frontend.js', array('jquery'), MY_BIBLE_PLUGIN_VERSION, true);
         wp_enqueue_script('my-bible-copy', MY_BIBLE_PLUGIN_URL . 'assets/js/bible-copy.js', array(), MY_BIBLE_PLUGIN_VERSION, true);
 
         $options = get_option('my_bible_options');
         $default_dark_mode = isset($options['default_dark_mode']) && $options['default_dark_mode'] === '1';
-        $default_testament_view_db = isset($options['default_testament_view_db']) ? $options['default_testament_view_db'] : 'all';
-
+        $default_testament_view_db = isset($options['default_testament_view_db']) ? $options['default_testament_view_db'] : 'all'; 
+        
         global $wpdb;
-        $testament_values_from_db = $wpdb->get_col("SELECT DISTINCT testament FROM " . $wpdb->prefix . "bible_verses WHERE testament != '' ORDER BY testament ASC");
-        if ($wpdb->last_error) { my_bible_log_error($wpdb->last_error, 'DB Error loading testaments'); $testament_values_from_db = array(); }
-
+        $testament_values_from_db = $wpdb->get_col(
+            "SELECT DISTINCT testament FROM " . $wpdb->prefix . "bible_verses WHERE testament != '' ORDER BY testament ASC"
+        );
+        
+        if ($wpdb->last_error) {
+            my_bible_log_error($wpdb->last_error, 'Database Error in enqueue_scripts');
+            $testament_values_from_db = array();
+        }
+        
         $testaments_for_js = array('all' => __('الكل', 'my-bible-plugin'));
         if ($testament_values_from_db) {
             foreach ($testament_values_from_db as $test_val) {
-                $testaments_for_js[$test_val] = esc_html($test_val);
+                $testaments_for_js[$test_val] = $test_val; 
             }
         }
 
-        $bible_page_for_url = get_page_by_path('bible');
-        $base_url_path = 'bible';
-        if ($bible_page_for_url instanceof WP_Post) {
-            $base_url_path = get_page_uri($bible_page_for_url->ID);
-        }
-
-        $image_fonts_data_php = array(
-            'noto_naskh_arabic' => array('label' => __('خط نسخ (افتراضي)', 'my-bible-plugin'), 'family' => '"Noto Naskh Arabic", Arial, Tahoma, sans-serif'),
-            'amiri' => array('label' => __('خط أميري', 'my-bible-plugin'), 'family' => 'Amiri, Georgia, serif'),
-            'tahoma' => array('label' => __('خط تاهوما', 'my-bible-plugin'), 'family' => 'Tahoma, Geneva, sans-serif'),
-            'arial' => array('label' => __('خط آريال', 'my-bible-plugin'), 'family' => 'Arial, Helvetica, sans-serif'),
-            'times_new_roman' => array('label' => __('خط تايمز نيو رومان', 'my-bible-plugin'), 'family' => '"Times New Roman", Times, serif')
-        );
-        $image_backgrounds_data_php = array(
-            'gradient_purple_blue' => array('type' => 'gradient', 'colors' => array('#4B0082', '#00008B', '#2F4F4F'), 'label' => __('تدرج بنفسجي-أزرق', 'my-bible-plugin'), 'textColor' => '#FFFFFF'),
-            'gradient_blue_green' => array('type' => 'gradient', 'colors' => array('#007bff', '#28a745', '#17a2b8'), 'label' => __('تدرج أزرق-أخضر', 'my-bible-plugin'), 'textColor' => '#FFFFFF' ),
-            'solid_dark_grey' => array('type' => 'solid', 'color' => '#343a40', 'label' => __('رمادي داكن ثابت', 'my-bible-plugin'), 'textColor' => '#FFFFFF'),
-            'solid_light_beige' => array('type' => 'solid', 'color' => '#f5f5dc', 'label' => __('بيج فاتح ثابت', 'my-bible-plugin'), 'textColor' => '#222222' ),
-        );
-
-        $frontend_data = array(
+        wp_localize_script('my-bible-frontend', 'bibleFrontend', array(
             'ajax_url' => admin_url('admin-ajax.php'),
-            'nonce'    => wp_create_nonce('bible_ajax_nonce'),
-            'base_url' => home_url(trailingslashit($base_url_path)),
-            'plugin_url' => MY_BIBLE_PLUGIN_URL,
-            'site_name' => get_bloginfo('name'),
+            'nonce'    => wp_create_nonce('bible_ajax_nonce'), 
+            'base_url' => home_url('/bible/'),
+            'show_tashkeel_label' => __('إظهار التشكيل', 'my-bible-plugin'),
+            'hide_tashkeel_label' => __('إلغاء التشكيل', 'my-bible-plugin'),
+            'read_aloud_label' => __('قراءة بصوت عالٍ', 'my-bible-plugin'),
+            'stop_reading_label' => __('إيقاف القراءة', 'my-bible-plugin'),
+            'dark_mode_toggle_label_dark' => __('الوضع الليلي', 'my-bible-plugin'),
+            'dark_mode_toggle_label_light' => __('الوضع النهاري', 'my-bible-plugin'),
             'default_dark_mode' => $default_dark_mode,
-            'default_testament_view' => $default_testament_view_db,
-            'testaments' => $testaments_for_js,
-            'image_fonts_data' => $image_fonts_data_php,
-            'image_backgrounds_data' => $image_backgrounds_data_php,
+            'default_testament_view' => $default_testament_view_db, 
+            'testaments' => $testaments_for_js, 
             'image_generator' => array(
                 'generating_image' => __('جارٍ إنشاء الصورة...', 'my-bible-plugin'),
                 'download_image' => __('تحميل الصورة', 'my-bible-plugin'),
+                'error_generating_image' => __('خطأ في إنشاء الصورة.', 'my-bible-plugin'),
+                'canvas_unsupported' => __('متصفحك لا يدعم إنشاء الصور بهذه الطريقة.', 'my-bible-plugin'),
                 'website_credit' => get_bloginfo('name'),
             ),
-            'localized_strings' => array(
+            'localized_strings' => array( 
                 'loading' => __('جارٍ التحميل...', 'my-bible-plugin'),
+                'select_book' => __('اختر السفر', 'my-bible-plugin'), 
+                'select_chapter' => __('اختر الأصحاح', 'my-bible-plugin'),
                 'please_select_book_and_chapter' => __('يرجى اختيار السفر ثم الأصحاح لعرض الآيات.', 'my-bible-plugin'),
                 'please_select_chapter' => __('يرجى اختيار الأصحاح.', 'my-bible-plugin'),
-                'select_book' => __('اختر السفر', 'my-bible-plugin'),
-                'select_chapter' => __('اختر الأصحاح', 'my-bible-plugin'),
-                'no_books_found' => __('لا توجد أسفار لهذا العهد', 'my-bible-plugin'),
-                'error_loading_books' => __('خطأ في تحميل الأسفار', 'my-bible-plugin'),
+                'no_books_found' => __('لا توجد أسفار لهذا العهد', 'my-bible-plugin'), 
                 'no_chapters_found' => __('لم يتم العثور على أصحاحات لهذا السفر.', 'my-bible-plugin'),
+                'error_loading_books' => __('خطأ في تحميل الأسفار', 'my-bible-plugin'), 
                 'error_loading_chapters' => __('حدث خطأ أثناء تحميل الأصحاحات.', 'my-bible-plugin'),
                 'error_loading_chapters_ajax' => __('خطأ في الاتصال (أصحاحات). حاول مرة أخرى.', 'my-bible-plugin'),
                 'error_loading_verses' => __('حدث خطأ أثناء تحميل الآيات.', 'my-bible-plugin'),
                 'error_loading_verses_ajax' => __('خطأ في الاتصال (آيات). حاول مرة أخرى.', 'my-bible-plugin'),
-                'mainPageTitle' => __('الكتاب المقدس', 'my-bible-plugin'),
-                'mainPageDescription' => __('تصفح الكتاب المقدس وقراءة النصوص المقدسة.', 'my-bible-plugin'),
-                'all' => __('الكل', 'my-bible-plugin'),
-                'font_noto_naskh' => __('خط نسخ (افتراضي)', 'my-bible-plugin'),
-                'font_amiri' => __('خط أميري', 'my-bible-plugin'),
-                'font_tahoma' => __('خط تاهوما', 'my-bible-plugin'),
-                'font_arial' => __('خط آريال', 'my-bible-plugin'),
-                'font_times' => __('خط تايمز نيو رومان', 'my-bible-plugin'),
-                'bg_gradient_purple_blue' => __('تدرج بنفسجي-أزرق', 'my-bible-plugin'),
-                'bg_gradient_blue_green' => __('تدرج أزرق-أخضر', 'my-bible-plugin'),
-                'bg_solid_dark_grey' => __('رمادي داكن ثابت', 'my-bible-plugin'),
-                'bg_solid_light_beige' => __('بيج فاتح ثابت', 'my-bible-plugin'),
-                'speech_unsupported' => __('عذراً، متصفحك لا يدعم ميزة القراءة الصوتية.', 'my-bible-plugin'),
-                'no_text_to_read' => __('لا يوجد نص للقراءة.', 'my-bible-plugin'),
-                'error_reading_aloud' => __('حدث خطأ أثناء محاولة القراءة: ', 'my-bible-plugin'),
-                'read_aloud_label' => __('قراءة بصوت عالٍ', 'my-bible-plugin'),
-                'stop_reading_label' => __('إيقاف القراءة', 'my-bible-plugin'),
-                'show_tashkeel_label' => __('إظهار التشكيل', 'my-bible-plugin'),
-                'hide_tashkeel_label' => __('إلغاء التشكيل', 'my-bible-plugin'),
-                'dark_mode_toggle_label_light' => __('الوضع النهاري', 'my-bible-plugin'),
-                'dark_mode_toggle_label_dark' => __('الوضع الليلي', 'my-bible-plugin'),
-                // New strings for chapter meanings modal
-                'chapter_meanings_title' => __('معاني كلمات الأصحاح', 'my-bible-plugin'),
-                'no_dictionary_terms_in_chapter' => __('لا توجد كلمات من القاموس في هذا الأصحاح.', 'my-bible-plugin'),
-                'no_chapter_content' => __('لم يتم العثور على محتوى الأصحاح.', 'my-bible-plugin'),
+                'mainPageTitle' => get_the_title(), 
+                'mainPageDescription' => __('تصفح الكتاب المقدس', 'my-bible-plugin')
             )
-        );
-
-        wp_localize_script('my-bible-frontend', 'bibleFrontend', $frontend_data);
+        ));
     } catch (Exception $e) {
         my_bible_log_error($e->getMessage(), 'Error in my_bible_enqueue_scripts');
     }
 }
 add_action('wp_enqueue_scripts', 'my_bible_enqueue_scripts');
 
-if (file_exists(MY_BIBLE_PLUGIN_DIR . 'includes/rewrite.php')) { require_once MY_BIBLE_PLUGIN_DIR . 'includes/rewrite.php'; }
-if (file_exists(MY_BIBLE_PLUGIN_DIR . 'includes/templates.php')) { require_once MY_BIBLE_PLUGIN_DIR . 'includes/templates.php'; }
-if (file_exists(MY_BIBLE_PLUGIN_DIR . 'includes/shortcodes.php')) { require_once MY_BIBLE_PLUGIN_DIR . 'includes/shortcodes.php'; }
-if (file_exists(MY_BIBLE_PLUGIN_DIR . 'includes/ajax.php')) { require_once MY_BIBLE_PLUGIN_DIR . 'includes/ajax.php'; }
-if (file_exists(MY_BIBLE_PLUGIN_DIR . 'includes/sitemap.php')) { require_once MY_BIBLE_PLUGIN_DIR . 'includes/sitemap.php'; }
+// تحميل ملفات الإضافة الأخرى (بعد ملف الدوال المساعدة)
+require_once MY_BIBLE_PLUGIN_DIR . 'includes/rewrite.php';
+require_once MY_BIBLE_PLUGIN_DIR . 'includes/templates.php';
+require_once MY_BIBLE_PLUGIN_DIR . 'includes/shortcodes.php';
+require_once MY_BIBLE_PLUGIN_DIR . 'includes/ajax.php';
+require_once MY_BIBLE_PLUGIN_DIR . 'includes/sitemap.php'; 
 
-function my_bible_create_dictionary_table_and_import_data() {
+
+// (الكود المتبقي من my-bible-plugin.php كما هو: إنشاء الجدول، الصفحات، الإعدادات، الخ)
+// إنشاء جدول الآيات عند تفعيل الإضافة
+function my_bible_create_table() {
     global $wpdb;
-    $table_name = $wpdb->prefix . 'bible_dictionary';
+    $table_name = $wpdb->prefix . 'bible_verses';
     $charset_collate = $wpdb->get_charset_collate();
-
-    // SQL schema for the dictionary table
     $sql = "CREATE TABLE $table_name (
-        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-        dictionary_key VARCHAR(255) NOT NULL,
-        book_name VARCHAR(255) NOT NULL,
-        chapter INT NOT NULL,
-        verse INT NOT NULL,
-        word TEXT NOT NULL,
-        meaning TEXT NOT NULL,
+        id mediumint(9) NOT NULL AUTO_INCREMENT,
+        testament varchar(50) DEFAULT '' NOT NULL, 
+        book varchar(100) NOT NULL,
+        chapter int NOT NULL,
+        verse int NOT NULL,
+        text text NOT NULL,
+        reference varchar(150) DEFAULT '' NOT NULL, 
         PRIMARY KEY (id),
-        UNIQUE KEY dictionary_key (dictionary_key),
-        KEY book_chapter_verse (book_name(191), chapter, verse)
+        UNIQUE KEY book_chapter_verse (book, chapter, verse),
+        INDEX book_idx (book),
+        INDEX chapter_idx (chapter),
+        INDEX testament_idx (testament) 
     ) $charset_collate;";
-
-    require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+    require_once ABSPATH . 'wp-admin/includes/upgrade.php';
     dbDelta($sql);
+}
+register_activation_hook(__FILE__, 'my_bible_create_table');
 
-    // Helper function to parse VerseID
-    if (!function_exists('_my_bible_parse_verse_id')) {
-        function _my_bible_parse_verse_id($verse_id_str) {
-            // Normalize common Arabic characters for broader matching
-            $verse_id_str = str_replace(['أ', 'إ', 'آ'], 'ا', $verse_id_str);
-            $verse_id_str = str_replace('ى', 'ي', $verse_id_str);
-            $verse_id_str = trim($verse_id_str);
+// إضافة الصفحات عند تفعيل الإضافة
+function my_bible_create_pages() {
+    $bible_read_page = array(
+        'post_title' => __('قراءة الكتاب المقدس', 'my-bible-plugin'),
+        'post_name' => 'bible_read',
+        'post_content' => '[bible_content]',
+        'post_status' => 'publish', 'post_type' => 'page',
+    );
+    if (!get_page_by_path('bible_read')) { wp_insert_post($bible_read_page); }
 
-            // Define book name map (abbreviation -> full name)
-            $book_map = array(
-                'تك' => 'سفر التكوين', 'خر' => 'سفر الخروج', 'لاو' => 'سفر اللاويين', 'عد' => 'سفر العدد', 'تث' => 'سفر التثنية',
-                'يش' => 'سفر يشوع', 'قض' => 'سفر القضاة', 'را' => 'سفر راعوث', '1صم' => 'سفر صموئيل الأول', '2صم' => 'سفر صموئيل الثاني',
-                '1مل' => 'سفر الملوك الأول', '2مل' => 'سفر الملوك الثاني', '1اخ' => 'سفر أخبار الأيام الأول', '2اخ' => 'سفر أخبار الأيام الثاني',
-                'عز' => 'سفر عزرا', 'نح' => 'سفر نحميا', 'اس' => 'سفر أستير', 'اي' => 'سفر أيوب', 'مز' => 'سفر المزامير',
-                'ام' => 'سفر الأمثال', 'جا' => 'سفر الجامعة', 'نش' => 'سفر نشيد الأنشاد', 'اش' => 'سفر إشعياء', 'ار' => 'سفر إرميا',
-                'مرا' => 'سفر مراثي إرميا', 'حز' => 'سفر حزقيال', 'دا' => 'سفر دانيال', 'هو' => 'سفر هوشع', 'يؤ' => 'سفر يوئيل',
-                'عا' => 'سفر عاموس', 'عو' => 'سفر عوبديا', 'يون' => 'سفر يونان', 'مي' => 'سفر ميخا', 'نا' => 'سفر ناحوم',
-                'حب' => 'سفر حبقوق', 'صف' => 'سفر صفنيا', 'حج' => 'سفر حجي', 'زك' => 'سفر زكريا', 'ملا' => 'سفر ملاخي',
-                'مت' => 'إنجيل متى', 'مر' => 'إنجيل مرقس', 'لو' => 'إنجيل لوقا', 'يو' => 'إنجيل يوحنا', 'اع' => 'سفر أعمال الرسل',
-                'رو' => 'الرسالة إلى أهل رومية', '1كو' => 'الرسالة الأولى إلى أهل كورنثوس', '2كو' => 'الرسالة الثانية إلى أهل كورنثوس',
-                'غل' => 'الرسالة إلى أهل غلاطية', 'اف' => 'الرسالة إلى أهل أفسس', 'في' => 'الرسالة إلى أهل فيلبي', 'كو' => 'الرسالة إلى أهل كولوسي',
-                '1تس' => 'الرسالة الأولى إلى أهل تسالونيكي', '2تس' => 'الرسالة الثانية إلى أهل تسالونيكي', '1تي' => 'الرسالة الأولى إلى تيموثاوس',
-                '2تي' => 'الرسالة الثانية إلى تيموثاوس', 'تي' => 'الرسالة إلى تيطس', 'فل' => 'الرسالة إلى فليمون', 'عب' => 'الرسالة إلى العبرانيين',
-                'يع' => 'رسالة يعقوب', '1بط' => 'رسالة بطرس الأولى', '2بط' => 'رسالة بطرس الثانية', '1يو' => 'رسالة يوحنا الأولى',
-                '2يو' => 'رسالة يوحنا الثانية', '3يو' => 'رسالة يوحنا الثالثة', 'يه' => 'رسالة يهوذا', 'رؤ' => 'سفر رؤيا يوحنا اللاهوتي'
-            );
+    $bible_page = array(
+        'post_title' => __('الكتاب المقدس', 'my-bible-plugin'),
+        'post_name' => 'bible', 
+        'post_content' => '',
+        'post_status' => 'publish', 'post_type' => 'page',
+    );
+    if (!get_page_by_path('bible')) { wp_insert_post($bible_page); }
 
-            // Regex to extract book abbreviation/name, chapter, and verse
-            if (preg_match('/^([^\d\s]+(?:\d[^\s\d]*)?)\s*(\d+)\s*:\s*(\d+)$/u', $verse_id_str, $matches)) {
-                $book_abbr = trim($matches[1]);
-                $chapter = (int)$matches[2];
-                $verse = (int)$matches[3];
-
-                // Normalize abbreviation before map lookup (standardize characters, then tolower)
-                $normalized_book_abbr = str_replace(['أ', 'إ', 'آ'], 'ا', $book_abbr);
-                $normalized_book_abbr = str_replace('ى', 'ي', $normalized_book_abbr);
-                $normalized_book_abbr = strtolower($normalized_book_abbr);
-
-                $book_name = isset($book_map[$normalized_book_abbr]) ? $book_map[$normalized_book_abbr] : $book_abbr; // Fallback to abbr
-
-                // Normalize the full book name for storage (remove all spaces, specific chars already handled)
-                $final_book_name = str_replace(' ', '', $book_name);
-                $final_book_name = str_replace(['أ', 'إ', 'آ'], 'ا', $final_book_name);
-                $final_book_name = str_replace('ى', 'ي', $final_book_name);
-
-
-                return ['book' => $final_book_name, 'chapter' => $chapter, 'verse' => $verse];
-            } else {
-                my_bible_log_error("Failed to parse VerseID: " . $verse_id_str, 'dictionary_import');
-                return false;
-            }
-        }
-    }
-
-    $csv_file_path = MY_BIBLE_PLUGIN_DIR . 'assets/data/dictionary_data.csv';
-
-    if (file_exists($csv_file_path) && is_readable($csv_file_path)) {
-        if (($handle = fopen($csv_file_path, 'r')) !== FALSE) {
-            fgetcsv($handle); // Skip header
-
-            while (($row = fgetcsv($handle)) !== FALSE) {
-                if (count($row) < 4) { // Expect at least ID, VerseID, Word, Meaning
-                    my_bible_log_error("Skipping row due to insufficient columns: " . implode(',', $row), 'dictionary_import');
-                    continue;
-                }
-
-                // $csv_id = trim($row[0]); // Column 0 is ID
-                $verse_id_str = trim($row[1]); // Column 1 is VerseID
-                $word = trim(stripslashes($row[2])); // Column 2 is Word
-                $meaning = trim(stripslashes($row[3])); // Column 3 is Meaning
-
-                if (empty($verse_id_str) || empty($word) || empty($meaning)) {
-                    my_bible_log_error("Skipping row due to empty essential data. VerseID: '{$verse_id_str}', Word: '{$word}'", 'dictionary_import');
-                    continue;
-                }
-
-                $parsed_verse_id = _my_bible_parse_verse_id($verse_id_str);
-
-                if ($parsed_verse_id) {
-                    // Book name from parser is already normalized (no spaces, standard chars)
-                    $normalized_key_book_name = strtolower($parsed_verse_id['book']);
-                    $normalized_key_word = strtolower($word);
-
-                    // Construct the string for MD5 hash to ensure consistency
-                    $dictionary_key_string = $normalized_key_book_name . '-' . $parsed_verse_id['chapter'] . '-' . $parsed_verse_id['verse'] . '-' . $normalized_key_word;
-                    $dictionary_key = md5($dictionary_key_string);
-
-                    $existing = $wpdb->get_var($wpdb->prepare("SELECT id FROM $table_name WHERE dictionary_key = %s", $dictionary_key));
-
-                    if (!$existing) {
-                        $insert_result = $wpdb->insert(
-                            $table_name,
-                            array(
-                                'dictionary_key' => $dictionary_key,
-                                'book_name' => $parsed_verse_id['book'], // Use the full, normalized book name from parser
-                                'chapter' => $parsed_verse_id['chapter'],
-                                'verse' => $parsed_verse_id['verse'],
-                                'word' => $word,
-                                'meaning' => $meaning
-                            ),
-                            array('%s', '%s', '%d', '%d', '%s', '%s')
-                        );
-                        if ($insert_result === false) {
-                            my_bible_log_error("DB Insert Error for dictionary key {$dictionary_key} (VerseID: {$verse_id_str}, Word: {$word}): " . $wpdb->last_error, 'dictionary_import');
-                        }
-                    }
-                }
-            }
-            fclose($handle);
-        } else {
-            my_bible_log_error("Failed to open CSV file: " . $csv_file_path, 'dictionary_import');
-        }
-    } else {
-        my_bible_log_error("CSV file not found or not readable: " . $csv_file_path, 'dictionary_import');
+    $bible_index_page = array(
+        'post_title' => __('فهرس الكتاب المقدس', 'my-bible-plugin'),
+        'post_name' => 'bible-index', 
+        'post_content' => '[bible_index]',
+        'post_status' => 'publish',
+        'post_type' => 'page',
+    );
+    if (!get_page_by_path('bible-index')) {
+        wp_insert_post($bible_index_page);
     }
 }
-
-function my_bible_create_table() { /* ... كما كان ... */ }
-register_activation_hook(__FILE__, 'my_bible_create_table');
-register_activation_hook(__FILE__, 'my_bible_create_dictionary_table_and_import_data');
-
-function my_bible_create_pages() { /* ... كما كان ... */ }
 register_activation_hook(__FILE__, 'my_bible_create_pages');
 
-function my_bible_deactivation() { flush_rewrite_rules(); }
+function my_bible_deactivation() {
+    flush_rewrite_rules();
+}
 register_deactivation_hook(__FILE__, 'my_bible_deactivation');
 
-function my_bible_load_textdomain() { load_plugin_textdomain('my-bible-plugin', false, dirname(plugin_basename(__FILE__)) . '/languages'); }
+function my_bible_load_textdomain() {
+    load_plugin_textdomain('my-bible-plugin', false, dirname(plugin_basename(__FILE__)) . '/languages');
+}
 add_action('plugins_loaded', 'my_bible_load_textdomain');
 
-function my_bible_settings_menu() { add_options_page( __('إعدادات إضافة الكتاب المقدس', 'my-bible-plugin'), __('الكتاب المقدس', 'my-bible-plugin'), 'manage_options', 'my-bible-settings', 'my_bible_settings_page_content' ); }
+/* --- قسم الإعدادات --- */
+function my_bible_settings_menu() {
+    add_options_page(
+        __('إعدادات إضافة الكتاب المقدس', 'my-bible-plugin'),
+        __('الكتاب المقدس', 'my-bible-plugin'),
+        'manage_options', 'my-bible-settings', 'my_bible_settings_page_content'
+    );
+}
 add_action('admin_menu', 'my_bible_settings_menu');
 
-function my_bible_register_settings() { /* ... كما كان ... */ }
+function my_bible_register_settings() {
+    register_setting('my_bible_settings_group', 'my_bible_options', 'my_bible_options_sanitize');
+    add_settings_section('my_bible_general_settings_section', __('الإعدادات العامة', 'my-bible-plugin'), 'my_bible_general_settings_section_callback', 'my-bible-settings');
+    
+    add_settings_field('bible_random_book', __('سفر الآيات العشوائية/اليومية', 'my-bible-plugin'), 'my_bible_random_book_field_callback', 'my-bible-settings', 'my_bible_general_settings_section', array('label_for' => 'bible_random_book_select'));
+    add_settings_field('default_dark_mode', __('الوضع الليلي الافتراضي', 'my-bible-plugin'), 'my_bible_default_dark_mode_field_callback', 'my-bible-settings', 'my_bible_general_settings_section', array('label_for' => 'default_dark_mode_checkbox'));
+    add_settings_field('default_testament_view_db', __('عرض العهد الافتراضي', 'my-bible-plugin'), 'my_bible_default_testament_view_db_field_callback', 'my-bible-settings', 'my_bible_general_settings_section');
+}
 add_action('admin_init', 'my_bible_register_settings');
 
-function my_bible_general_settings_section_callback() { echo '<p>' . esc_html__('اختر الإعدادات العامة لإضافة الكتاب المقدس.', 'my-bible-plugin') . '</p>'; }
-
-function my_bible_random_book_field_callback() {
-    global $wpdb; $options = get_option('my_bible_options'); $selected_book = isset($options['bible_random_book']) ? $options['bible_random_book'] : ''; $table_name = $wpdb->prefix . 'bible_verses';
-    $books = $wpdb->get_col("SELECT DISTINCT book FROM $table_name ORDER BY book ASC");
-    if ($wpdb->last_error) { my_bible_log_error($wpdb->last_error, 'Settings - loading random books'); echo '<p>' . esc_html__('خطأ في جلب قائمة الأسفار.', 'my-bible-plugin') . '</p>'; return; }
-    if (empty($books)) { echo '<p>' . esc_html__('لم يتم العثور على أسفار في قاعدة البيانات.', 'my-bible-plugin') . '</p>'; return; }
-    echo '<select id="bible_random_book_select" name="my_bible_options[bible_random_book]">'; echo '<option value="">' . esc_html__('كل الأسفار', 'my-bible-plugin') . '</option>';
-    foreach ($books as $book) { echo '<option value="' . esc_attr($book) . '" ' . selected($selected_book, $book, false) . '>' . esc_html($book) . '</option>'; }
-    echo '</select>'; echo '<p class="description">' . esc_html__('اختر سفراً للآيات العشوائية واليومية.', 'my-bible-plugin') . '</p>';
+function my_bible_general_settings_section_callback() {
+    echo '<p>' . __('اختر الإعدادات العامة لإضافة الكتاب المقدس.', 'my-bible-plugin') . '</p>';
 }
 
-function my_bible_default_dark_mode_field_callback() { /* ... كما كان ... */ }
-function my_bible_default_testament_view_db_field_callback() { /* ... كما كان ... */ }
-function my_bible_options_sanitize($input) { /* ... كما كان ... */ return $input; }
-function my_bible_settings_page_content() { /* ... كما كان ... */ }
+function my_bible_random_book_field_callback() {
+    global $wpdb;
+    $options = get_option('my_bible_options');
+    $selected_book = isset($options['bible_random_book']) ? $options['bible_random_book'] : '';
+    $table_name = $wpdb->prefix . 'bible_verses';
+    $books = get_transient('my_bible_all_books_for_settings'); 
+    if (false === $books) {
+        $books = $wpdb->get_col("SELECT DISTINCT book FROM $table_name ORDER BY book ASC");
+        set_transient('my_bible_all_books_for_settings', $books, DAY_IN_SECONDS);
+    }
+    if (empty($books)) {
+        echo '<p>' . __('لم يتم العثور على أسفار.', 'my-bible-plugin') . '</p>'; return;
+    }
+    echo '<select id="bible_random_book_select" name="my_bible_options[bible_random_book]">';
+    echo '<option value="">' . __('كل الأسفار', 'my-bible-plugin') . '</option>';
+    foreach ($books as $book) {
+        echo '<option value="' . esc_attr($book) . '" ' . selected($selected_book, $book, false) . '>' . esc_html($book) . '</option>';
+    }
+    echo '</select>';
+    echo '<p class="description">' . __('اختر سفراً للآيات العشوائية واليومية.', 'my-bible-plugin') . '</p>';
+}
+
+function my_bible_default_dark_mode_field_callback() {
+    $options = get_option('my_bible_options');
+    $checked = isset($options['default_dark_mode']) && $options['default_dark_mode'] === '1';
+    echo '<input type="checkbox" id="default_dark_mode_checkbox" name="my_bible_options[default_dark_mode]" value="1" ' . checked($checked, true, false) . ' />';
+    echo '<label for="default_dark_mode_checkbox"> ' . __('تفعيل الوضع الليلي بشكل افتراضي عند تحميل الصفحة.', 'my-bible-plugin') . '</label>';
+}
+
+function my_bible_default_testament_view_db_field_callback() {
+    $options = get_option('my_bible_options');
+    $current_value = isset($options['default_testament_view_db']) ? $options['default_testament_view_db'] : 'all';
+    
+    global $wpdb;
+    $db_testaments = $wpdb->get_col("SELECT DISTINCT testament FROM " . $wpdb->prefix . "bible_verses WHERE testament != '' ORDER BY testament ASC");
+
+    ?>
+    <select name="my_bible_options[default_testament_view_db]" id="default_testament_view_db_select">
+        <option value="all" <?php selected($current_value, 'all'); ?>><?php esc_html_e('الكل (العهدين)', 'my-bible-plugin'); ?></option>
+        <?php if ($db_testaments): ?>
+            <?php foreach ($db_testaments as $test_val): ?>
+                <option value="<?php echo esc_attr($test_val); ?>" <?php selected($current_value, $test_val); ?>><?php echo esc_html($test_val); ?></option>
+            <?php endforeach; ?>
+        <?php endif; ?>
+    </select>
+    <p class="description"><?php esc_html_e('اختر العهد الذي يتم عرضه افتراضياً في قائمة اختيار الأسفار (في شورتكود عرض المحتوى والبحث).', 'my-bible-plugin'); ?></p>
+    <?php
+}
+
+function my_bible_options_sanitize($input) {
+    $sanitized_input = array();
+    if (isset($input['bible_random_book'])) {
+        $sanitized_input['bible_random_book'] = sanitize_text_field($input['bible_random_book']);
+    }
+    $sanitized_input['default_dark_mode'] = (isset($input['default_dark_mode']) && $input['default_dark_mode'] == '1') ? '1' : '0';
+    
+    $allowed_testaments = array('all');
+    global $wpdb;
+    $db_testaments = $wpdb->get_col("SELECT DISTINCT testament FROM " . $wpdb->prefix . "bible_verses WHERE testament != ''");
+    if ($db_testaments) {
+        $allowed_testaments = array_merge($allowed_testaments, $db_testaments);
+    }
+
+    if (isset($input['default_testament_view_db']) && in_array($input['default_testament_view_db'], $allowed_testaments)) {
+        $sanitized_input['default_testament_view_db'] = $input['default_testament_view_db'];
+    } else {
+        $sanitized_input['default_testament_view_db'] = 'all'; 
+    }
+    return $sanitized_input;
+}
+
+function my_bible_settings_page_content() {
+    if (!current_user_can('manage_options')) { wp_die(__('ليس لديك الصلاحيات.', 'my-bible-plugin')); }
+    ?>
+    <div class="wrap">
+        <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
+        <form action="options.php" method="post">
+            <?php
+            settings_fields('my_bible_settings_group');
+            do_settings_sections('my-bible-settings');
+            submit_button(__('حفظ التغييرات', 'my-bible-plugin'));
+            ?>
+        </form>
+    </div>
+    <?php
+}
+
 add_filter('widget_text', 'do_shortcode');
 ?>
-
-[end of my-bible-plugin.php]

@@ -12,14 +12,13 @@ function my_bible_register_rewrite_rules() {
         'top'
     );
 
-    // --- بداية التعديل: تعديل القاعدة لمنع التعارض مع خرائط الموقع ---
-    // تم إضافة `(?!.*\.xml$)` للتأكد من أن الرابط لا ينتهي بـ .xml
+    // **قاعدة جديدة: لعرض قائمة الأصحاحات لسفر معين**
+    // تأتي قبل قاعدة عرض الأصحاح المحدد
     add_rewrite_rule(
-        '^bible/((?!.*\.xml$)[^/]+)/?$', 
-        'index.php?pagename=bible&book=$matches[1]&my_bible_view=chapters', 
+        '^bible/([^/]+)/?$', // يطابق /bible/اسم-السفر/
+        'index.php?pagename=bible&book=$matches[1]&my_bible_view=chapters', // استخدم متغير استعلام جديد للتمييز
         'top'
     );
-    // --- نهاية التعديل ---
 
     // قاعدة لعرض آية محددة (تبقى كما هي)
     add_rewrite_rule(

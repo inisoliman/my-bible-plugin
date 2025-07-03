@@ -9,14 +9,10 @@ if (!defined('ABSPATH')) {
  */
 function my_bible_custom_sitemap_rewrite_rules() {
     add_rewrite_tag('%my_bible_sitemap%', '([^&]+)'); 
-    
-    // --- بداية التعديل: إضافة /bible/ إلى بداية كل قاعدة ---
-    // هذا يجعل القاعدة أكثر تحديداً ويحل التعارض مع قواعد الأسفار
-    add_rewrite_rule('^bible/bible-sitemap\.xml?$', 'index.php?my_bible_sitemap=index', 'top');
-    add_rewrite_rule('^bible/bible-sitemap-books\.xml?$', 'index.php?my_bible_sitemap=books', 'top');
-    add_rewrite_rule('^bible/bible-sitemap-chapters\.xml?$', 'index.php?my_bible_sitemap=chapters', 'top');
-    add_rewrite_rule('^bible/bible-sitemap-verses\.xml?$', 'index.php?my_bible_sitemap=verses', 'top');
-    // --- نهاية التعديل ---
+    add_rewrite_rule('^bible-sitemap\.xml?$', 'index.php?my_bible_sitemap=index', 'top');
+    add_rewrite_rule('^bible-sitemap-books\.xml?$', 'index.php?my_bible_sitemap=books', 'top');
+    add_rewrite_rule('^bible-sitemap-chapters\.xml?$', 'index.php?my_bible_sitemap=chapters', 'top');
+    add_rewrite_rule('^bible-sitemap-verses\.xml?$', 'index.php?my_bible_sitemap=verses', 'top');
 }
 add_action('init', 'my_bible_custom_sitemap_rewrite_rules');
 
@@ -33,7 +29,25 @@ add_filter('query_vars', 'my_bible_custom_sitemap_query_vars');
  * معالجة طلبات خريطة الموقع المخصصة.
  */
 function my_bible_handle_custom_sitemap_request() {
-    $sitemap_type = get_query_var('my_bible_sitemap');
+    global $wp_query;
+    $sitemap_type_from_query_var = isset($wp_query->query_vars['my_bible_sitemap']) ? $wp_query->query_vars['my_bible_sitemap'] : null;
+    $request_uri = isset($_SERVER['REQUEST_URI']) ? trailingslashit($_SERVER['REQUEST_URI']) : ''; // إضافة سلاش للتأكد من التطابق
+
+    $sitemap_type = null;
+
+    // تحديد نوع خريطة الموقع بناءً على URI بشكل أساسي
+    if (strpos($request_uri, 'bible-sitemap.xml/') !== false) {
+        $sitemap_type = 'index';
+    } elseif (strpos($request_uri, 'bible-sitemap-books.xml/') !== false) {
+        $sitemap_type = 'books';
+    } elseif (strpos($request_uri, 'bible-sitemap-chapters.xml/') !== false) {
+        $sitemap_type = 'chapters';
+    } elseif (strpos($request_uri, 'bible-sitemap-verses.xml/') !== false) {
+        $sitemap_type = 'verses';
+    }
+
+    // تسجيل للمساعدة في التشخيص
+    error_log('[My Bible Plugin DEBUG] Sitemap Request URI: ' . $request_uri . ' | Query Var: ' . print_r($sitemap_type_from_query_var, true) . ' | Determined Type: ' . print_r($sitemap_type, true));
 
     if (empty($sitemap_type)) {
         return; // ليس طلب خريطة موقع خاص بنا
@@ -57,31 +71,32 @@ function my_bible_handle_custom_sitemap_request() {
         error_log('[My Bible Plugin DEBUG] Generating sitemap index (bible-sitemap.xml)');
         echo '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
         
-        // --- بداية التعديل: تعديل الروابط الداخلية لخريطة الموقع ---
         $count_books = (int) $wpdb->get_var("SELECT COUNT(DISTINCT book) FROM {$table_name}");
+        error_log("[My Bible Plugin DEBUG] Count books for sitemap index: " . $count_books);
         if ($count_books > 0) {
             echo "  <sitemap>\n";
-            echo "    <loc>" . esc_url(trailingslashit($home_url . 'bible/bible-sitemap-books.xml')) . "</loc>\n";
+            echo "    <loc>" . esc_url(trailingslashit($home_url . 'bible-sitemap-books.xml')) . "</loc>\n";
             echo "    <lastmod>" . esc_html($lastmod_date) . "</lastmod>\n";
             echo "  </sitemap>\n";
         }
 
         $count_chapters = (int) $wpdb->get_var("SELECT COUNT(DISTINCT book, chapter) FROM {$table_name}");
+        error_log("[My Bible Plugin DEBUG] Count chapters for sitemap index: " . $count_chapters);
         if ($count_chapters > 0) {
             echo "  <sitemap>\n";
-            echo "    <loc>" . esc_url(trailingslashit($home_url . 'bible/bible-sitemap-chapters.xml')) . "</loc>\n";
+            echo "    <loc>" . esc_url(trailingslashit($home_url . 'bible-sitemap-chapters.xml')) . "</loc>\n";
             echo "    <lastmod>" . esc_html($lastmod_date) . "</lastmod>\n";
             echo "  </sitemap>\n";
         }
 
         $count_verses = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$table_name}");
+        error_log("[My Bible Plugin DEBUG] Count verses for sitemap index: " . $count_verses);
         if ($count_verses > 0) {
             echo "  <sitemap>\n";
-            echo "    <loc>" . esc_url(trailingslashit($home_url . 'bible/bible-sitemap-verses.xml')) . "</loc>\n";
+            echo "    <loc>" . esc_url(trailingslashit($home_url . 'bible-sitemap-verses.xml')) . "</loc>\n";
             echo "    <lastmod>" . esc_html($lastmod_date) . "</lastmod>\n";
             echo "  </sitemap>\n";
         }
-        // --- نهاية التعديل ---
         echo '</sitemapindex>';
 
     } elseif (in_array($sitemap_type, array('books', 'chapters', 'verses'))) {
@@ -151,5 +166,5 @@ function my_bible_handle_custom_sitemap_request() {
     }
     exit; 
 }
-add_action('template_redirect', 'my_bible_handle_custom_sitemap_request', 5);
+add_action('template_redirect', 'my_bible_handle_custom_sitemap_request', 5); 
 ?>
