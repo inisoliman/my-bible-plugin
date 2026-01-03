@@ -83,7 +83,7 @@
 
    ```bash
    cd wp-content/plugins/
-   git clone https://github.com/yourusername/my-bible-plugin.git
+   git clone https://github.com/inisoliman/my-bible-plugin.git
    ```
 
 2. **تفعيل الإضافة:**
