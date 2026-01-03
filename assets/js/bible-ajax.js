@@ -244,3 +244,38 @@ $(document).on('click', '.prev-chapter-link, .next-chapter-link', function(e) {
         }
     });
 });
+
+function loadVersesViaAjax(book, chapter, testament) {
+    // استخدام نفس معايير الترميز في جميع الطلبات
+    const params = new URLSearchParams({
+        book: encodeURIComponent(book),
+        chapter: chapter,
+        testament: testament
+    });
+    
+    $.ajax({
+        url: bibleAjax.ajax_url,
+        type: 'POST',
+        data: {
+            action: 'bible_get_verses', // اسم الأكشن في PHP
+            book: selectedBook,
+            chapter: selectedChapter,
+            nonce: bibleAjax.nonce // إرسال Nonce
+        },
+        dataType: 'json',
+        success: function(response) {
+            if (response.success && response.data && response.data.html) {
+                versesDisplay.html(response.data.html);
+                // تحديث عنوان الصفحة والوصف والرابط
+                updatePageDetails(response.data.title, response.data.description, response.data.book, response.data.chapter);
+            } else {
+                const errorMessage = response.data && response.data.message ? response.data.message : (bibleStrings.errorLoadingVerses || 'حدث خطأ أثناء تحميل الآيات.');
+                versesDisplay.html('<p class="bible-error-message">' + errorMessage + '</p>');
+            }
+        },
+        error: function(jqXHR, textStatus, errorThrown) {
+            // console.error('AJAX Error (get_verses):', textStatus, errorThrown, jqXHR.responseText);
+            versesDisplay.html('<p class="bible-error-message">' + (bibleStrings.errorLoadingVersesAjax || 'خطأ في الاتصال (آيات). حاول مرة أخرى.') + '</p>');
+        }
+    });
+}

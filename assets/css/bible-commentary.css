@@ -1,0 +1,679 @@
+/* Commentary Layout */
+.bible-commentary-wrapper {
+    font-family: 'Noto Naskh Arabic', 'Amiri', 'Cairo', sans-serif;
+    color: #2c3e50;
+    line-height: 1.9;
+    direction: rtl;
+    text-align: right;
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    padding: 30px 20px;
+    min-height: 100vh;
+}
+
+/* Controls Header - Modern Card Style */
+.bible-commentary-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 30px;
+    border-radius: 16px;
+    margin-bottom: 30px;
+    box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+    align-items: flex-end;
+    flex-direction: row-reverse;
+    border: none;
+}
+
+.control-group {
+    flex: 1;
+    min-width: 220px;
+}
+
+.control-group label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #ffffff;
+    font-size: 15px;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.bible-commentary-controls select {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 10px;
+    background-color: rgba(255, 255, 255, 0.95);
+    font-size: 16px;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.bible-commentary-controls select:focus {
+    outline: none;
+    border-color: #ffd700;
+    box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.3);
+    transform: translateY(-2px);
+}
+
+.bible-commentary-controls button.button-primary {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: #fff;
+    border: none;
+    padding: 12px 28px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 17px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    height: auto;
+    box-shadow: 0 6px 20px rgba(245, 87, 108, 0.4);
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.bible-commentary-controls button.button-primary:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 30px rgba(245, 87, 108, 0.5);
+}
+
+.bible-commentary-controls button:disabled {
+    background: linear-gradient(135deg, #bdc3c7 0%, #95a5a6 100%);
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+/* Main Layout: Sidebar & Content */
+.bible-commentary-layout {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 30px;
+    position: relative;
+    flex-direction: row-reverse;
+    /* في RTL: العنصر الأول يظهر على اليسار */
+}
+
+/* Content Area - Premium Card Design */
+.commentary-content {
+    flex: 3;
+    min-width: 0;
+    background: #ffffff;
+    padding: 40px;
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+    font-size: 19px;
+    border: 1px solid rgba(102, 126, 234, 0.1);
+    order: 2;
+    /* يظهر على اليمين */
+}
+
+.placeholder-text {
+    text-align: center;
+    color: #95a5a6;
+    padding: 80px 20px;
+}
+
+.placeholder-text i {
+    font-size: 64px;
+    margin-bottom: 20px;
+    color: #e0e6ed;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* Sidebar (TOC) - Sticky & Modern - LEFT SIDE */
+.commentary-sidebar {
+    flex: 0 0 320px;
+    /* Fixed width for better control */
+    min-width: 320px;
+    max-width: 320px;
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    padding: 30px;
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(102, 126, 234, 0.15);
+    border: 2px solid rgba(102, 126, 234, 0.1);
+    order: 1;
+    /* يظهر أولاً = على اليسار في flex-direction: row-reverse */
+    margin-right: 0;
+    /* لا مسافة من اليمين */
+    margin-left: 0;
+    /* لا مسافة من اليسار */
+
+    /* Sticky positioning for easy navigation */
+    position: sticky;
+    top: 20px;
+    align-self: flex-start;
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+    z-index: 100;
+
+    /* Custom scrollbar */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(102, 126, 234, 0.3) transparent;
+}
+
+/* Webkit scrollbar styling for TOC */
+.commentary-sidebar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.commentary-sidebar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.commentary-sidebar::-webkit-scrollbar-thumb {
+    background: rgba(102, 126, 234, 0.3);
+    border-radius: 10px;
+}
+
+.commentary-sidebar::-webkit-scrollbar-thumb:hover {
+    background: rgba(102, 126, 234, 0.5);
+}
+
+/* Force parent containers to allow sticky positioning */
+.bible-commentary-wrapper,
+.bible-commentary-layout,
+.tie-container {
+    overflow: visible !important;
+}
+
+/* TOC Toggle Button - Hidden on desktop, visible on mobile */
+.toc-toggle-btn {
+    position: fixed;
+    right: 10px;
+    top: 100px;
+    z-index: 1001;
+    background: #007bff;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    display: none;
+    /* Hidden by default */
+}
+
+/* Mobile: Collapsible TOC */
+@media (max-width: 768px) {
+    .toc-toggle-btn {
+        display: block;
+        /* Show on mobile */
+    }
+
+    .commentary-sidebar {
+        position: fixed;
+        right: -280px;
+        top: 80px;
+        width: 280px;
+        height: calc(100vh - 100px);
+        overflow-y: auto;
+        z-index: 1000;
+        transition: right 0.3s ease;
+        box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .commentary-sidebar.active {
+        right: 0;
+    }
+}
+
+.commentary-sidebar h3 {
+    margin-top: 0;
+    font-size: 20px;
+    font-weight: 700;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    border-bottom: 3px solid;
+    border-image: linear-gradient(90deg, #667eea, #764ba2) 1;
+    padding-bottom: 12px;
+    margin-bottom: 20px;
+}
+
+#commentary-toc-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+#commentary-toc-list li {
+    margin-bottom: 10px;
+}
+
+#commentary-toc-list a {
+    color: #667eea;
+    text-decoration: none;
+    display: block;
+    padding: 10px 15px;
+    border-radius: 10px;
+    transition: all 0.3s ease;
+    font-weight: 500;
+    border-left: 3px solid transparent;
+}
+
+#commentary-toc-list a:hover {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+    border-left-color: #667eea;
+    transform: translateX(-5px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+}
+
+.toc-level-1 {
+    font-weight: bold;
+}
+
+.toc-level-2 {
+    padding-right: 15px;
+    font-size: 0.9em;
+}
+
+/* Content Typography */
+.commentary-title {
+    color: #2c3e50;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+    margin-top: 30px;
+}
+
+.commentary-subtitle {
+    color: #34495e;
+    margin-top: 20px;
+}
+
+.commentary-actions {
+    margin: 20px 0;
+    text-align: left;
+}
+
+/* Commentary Formatting Elements */
+.commentary-group {
+    margin: 15px 0;
+}
+
+.commentary-row {
+    display: flex;
+    flex-wrap: wrap;
+    margin: 10px 0;
+}
+
+.commentary-cell {
+    flex: 1;
+    min-width: 200px;
+    padding: 10px;
+    border: 1px solid #eee;
+    margin: 5px;
+}
+
+.commentary-ref {
+    color: #0066cc;
+    font-style: italic;
+}
+
+.commentary-image-placeholder {
+    background: #f5f5f5;
+    padding: 20px;
+    text-align: center;
+    color: #999;
+    border: 1px dashed #ccc;
+    margin: 15px 0;
+}
+
+.read-chapter-link {
+    display: inline-block;
+    background: #28a745;
+    color: white !important;
+    padding: 8px 15px;
+    text-decoration: none;
+    border-radius: 20px;
+    font-size: 0.9em;
+}
+
+.read-chapter-link i {
+    margin-left: 5px;
+}
+
+/* Commentary Text Styling - Modern Typography */
+.commentary-content h1,
+.commentary-content h2,
+.commentary-content h3,
+.commentary-content h4 {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-top: 35px;
+    margin-bottom: 18px;
+    font-weight: 700;
+    position: relative;
+    padding-bottom: 10px;
+}
+
+.commentary-content h2::after,
+.commentary-content h3::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 60px;
+    height: 3px;
+    background: linear-gradient(90deg, #667eea, #764ba2);
+    border-radius: 2px;
+}
+
+.commentary-content p {
+    margin-bottom: 18px;
+    text-align: justify;
+}
+
+/* Commentary Link Icon in Bible View */
+.commentary-link-icon {
+    color: #0066cc;
+    margin: 0 5px;
+    font-size: 0.9em;
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+.commentary-link-icon:hover {
+    color: #004499;
+}
+
+/* Smart Verse Links - Premium Style */
+.smart-verse-link {
+    color: #f5576c;
+    text-decoration: none;
+    border-bottom: 2px solid rgba(245, 87, 108, 0.3);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: 600;
+    padding: 2px 4px;
+    border-radius: 3px;
+    background: linear-gradient(135deg, rgba(240, 147, 251, 0.05) 0%, rgba(245, 87, 108, 0.05) 100%);
+}
+
+.smart-verse-link:hover {
+    color: #ffffff;
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    border-bottom-color: transparent;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(245, 87, 108, 0.3);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .bible-commentary-layout {
+        flex-direction: column-reverse;
+        /* Content first on mobile? Usually sidebar first or collapsible */
+    }
+
+    /* Conflicting sidebar styles removed to allow collapsible logic above to work */
+
+    .bible-commentary-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .control-group {
+        width: 100%;
+    }
+}
+
+/* Distinct Verse Styling - ENHANCED */
+.commentary-verse-text {
+    display: block !important;
+    width: 100% !important;
+    clear: both !important;
+    float: none !important;
+    background-color: #f8f9fa;
+    border-right: 4px solid #667eea;
+    padding: 15px 20px;
+    margin: 30px 0 20px 0 !important; /* Increased top margin */
+    border-radius: 8px;
+    font-family: 'Amiri', 'Traditional Arabic', serif;
+    font-size: 1.1em;
+    color: #2c3e50;
+    line-height: 2.2;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    position: relative;
+    /* Force new line */
+    overflow: hidden;
+}
+
+/* Ensure preceding content doesn't interfere */
+.commentary-verse-text::before {
+    content: "";
+    display: block;
+    clear: both;
+    height: 0;
+}
+
+/* Add spacing before verse box */
+*:not(br) + .commentary-verse-text {
+    margin-top: 35px !important;
+}
+
+.commentary-verse-text .verse-number {
+    color: #e74c3c;
+    font-weight: bold;
+    margin-left: 5px;
+    display: inline-block;
+}
+
+.commentary-verse-text .verse-prefix {
+    color: #34495e;
+    font-weight: 600;
+    margin-left: 8px;
+    display: inline-block;
+}
+
+/* Hover effect for verse text */
+.commentary-verse-text:hover {
+    background-color: #fff;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+    transition: all 0.3s ease;
+}
+
+/* Line spacing from {{l}} */
+br.commentary-line {
+    display: block;
+    margin-bottom: 8px;
+    content: "";
+}
+
+/* New Commentary Tags Styles */
+
+/* Paragraphs */
+.commentary-p {
+    margin-bottom: 20px;
+    line-height: 1.8;
+}
+
+/* Dividers */
+hr.commentary-divider {
+    border: 0;
+    height: 1px;
+    background-image: linear-gradient(to right, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.15), rgba(0, 0, 0, 0));
+    margin: 30px 0;
+}
+
+/* Grid System */
+.commentary-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin: 20px 0;
+    width: 100%;
+}
+
+.commentary-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    width: 100%;
+}
+
+.commentary-col {
+    flex: 1;
+    min-width: 250px;
+    padding: 15px;
+    background: #f9f9f9;
+    border-radius: 8px;
+    border: 1px solid #eee;
+}
+
+/* Scripture References */
+.scripture-ref {
+    color: #3498db;
+    text-decoration: none;
+    font-weight: 500;
+    border-bottom: 1px dotted #3498db;
+    transition: all 0.2s;
+}
+
+.scripture-ref:hover {
+    color: #2980b9;
+    background-color: rgba(52, 152, 219, 0.1);
+    border-radius: 3px;
+}
+
+/* ========================================
+   Lazy Loading Styles
+   ======================================== */
+
+/* Loading More Indicator */
+.loading-more {
+    text-align: center;
+    padding: 2rem;
+    color: #667eea;
+    font-size: 1rem;
+    font-weight: 500;
+    animation: fadeIn 0.3s ease;
+}
+
+.loading-more i {
+    margin-left: 0.5rem;
+    font-size: 1.2rem;
+}
+
+/* Progress Indicator */
+.progress-indicator {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 25px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    border: 2px solid rgba(102, 126, 234, 0.1);
+}
+
+.progress-text {
+    display: block;
+    text-align: center;
+    color: #495057;
+    font-size: 0.95rem;
+    margin-bottom: 12px;
+}
+
+.progress-text strong {
+    color: #667eea;
+    font-weight: 700;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 8px;
+    background: #e9ecef;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    border-radius: 10px;
+    transition: width 0.4s ease;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+    animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+    0% {
+        background-position: -100% 0;
+    }
+    100% {
+        background-position: 200% 0;
+    }
+}
+
+/* Load Complete Message */
+.load-complete {
+    text-align: center;
+    padding: 2rem;
+    color: #28a745;
+    font-weight: 600;
+    font-size: 1.1rem;
+    border-top: 2px solid #e9ecef;
+    margin-top: 2rem;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.1);
+    animation: fadeIn 0.5s ease;
+}
+
+.load-complete i {
+    margin-left: 0.5rem;
+    font-size: 1.3rem;
+}
+
+/* Fade In Animation */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Spinner Animation */
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.fa-spinner.fa-spin {
+    animation: spin 0.8s linear infinite;
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+    .progress-indicator {
+        background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+        border-color: rgba(102, 126, 234, 0.3);
+    }
+    
+    .progress-text {
+        color: #e2e8f0;
+    }
+    
+    .progress-bar {
+        background: #4a5568;
+    }
+    
+    .load-complete {
+        background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+        color: #48bb78;
+    }
+    
+    .loading-more {
+        color: #a78bfa;
+    }
+}
